@@ -82,7 +82,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-green-600">Dashboard General</h2>
+        <h2 className="text-[28px] font-semibold tracking-tight text-[#1d1d1f]">Dashboard General</h2>
         <p className="text-[15px] text-[#48484a] mt-1">Resumen ejecutivo de tu joyeria</p>
       </div>
 
