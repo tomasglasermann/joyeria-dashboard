@@ -2,10 +2,7 @@ import { useState, useMemo } from 'react'
 import { Search, ChevronDown, ChevronRight, User, Phone, Mail, FileText, Clock, ShoppingBag, Scale, AlertCircle } from 'lucide-react'
 import SparklineCard from '../components/SparklineCard'
 import StatusBadge from '../components/StatusBadge'
-import {
-  ventasPorCanalDetalle,
-  clientesVentas,
-} from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 
 const tipoLabels = { mayorista: 'Mayorista', detal: 'Al Detal', shopify: 'Shopify' }
 const tipoColors = {
@@ -162,6 +159,7 @@ function ClientDetail({ cliente }) {
 }
 
 export default function Ventas() {
+  const { ventasPorCanalDetalle, clientesVentas } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [expandedId, setExpandedId] = useState(null)

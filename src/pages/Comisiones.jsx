@@ -6,50 +6,18 @@ import AsignacionModal from '../components/AsignacionModal'
 import EquipoModal from '../components/EquipoModal'
 import { exportarCSV } from '../utils/exportCSV'
 import { useRole } from '../hooks/useRole'
-import {
-  vendedoresEquipo as vendedoresDefault,
-  ventasComisiones,
-  clienteVendedorDefault,
-} from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 
 const STORAGE_ASIGNACIONES = 'vicenza_asignaciones'
 const STORAGE_TASAS = 'vicenza_tasas_comision'
 const STORAGE_VENDEDORES = 'vicenza_vendedores'
 
-function loadVendedores() {
-  try {
-    const saved = localStorage.getItem(STORAGE_VENDEDORES)
-    return saved ? JSON.parse(saved) : [...vendedoresDefault]
-  } catch {
-    return [...vendedoresDefault]
-  }
-}
-
 function saveVendedores(data) {
   localStorage.setItem(STORAGE_VENDEDORES, JSON.stringify(data))
 }
 
-function loadAsignaciones() {
-  try {
-    const saved = localStorage.getItem(STORAGE_ASIGNACIONES)
-    return saved ? JSON.parse(saved) : { ...clienteVendedorDefault }
-  } catch {
-    return { ...clienteVendedorDefault }
-  }
-}
-
 function saveAsignaciones(data) {
   localStorage.setItem(STORAGE_ASIGNACIONES, JSON.stringify(data))
-}
-
-function loadTasas() {
-  try {
-    const saved = localStorage.getItem(STORAGE_TASAS)
-    if (saved) return JSON.parse(saved)
-  } catch { /* ignore */ }
-  const defaults = {}
-  vendedoresDefault.forEach(v => { defaults[v.id] = v.comision })
-  return defaults
 }
 
 function saveTasas(data) {
@@ -58,9 +26,29 @@ function saveTasas(data) {
 
 export default function Comisiones() {
   const { can } = useRole()
-  const [vendedores, setVendedores] = useState(loadVendedores)
-  const [asignaciones, setAsignaciones] = useState(loadAsignaciones)
-  const [tasas, setTasas] = useState(loadTasas)
+  const { vendedoresEquipo: vendedoresDefault, ventasComisiones, clienteVendedorDefault } = useData()
+
+  const [vendedores, setVendedores] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_VENDEDORES)
+      return saved ? JSON.parse(saved) : [...vendedoresDefault]
+    } catch { return [...vendedoresDefault] }
+  })
+  const [asignaciones, setAsignaciones] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_ASIGNACIONES)
+      return saved ? JSON.parse(saved) : { ...clienteVendedorDefault }
+    } catch { return { ...clienteVendedorDefault } }
+  })
+  const [tasas, setTasas] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_TASAS)
+      if (saved) return JSON.parse(saved)
+    } catch { /* ignore */ }
+    const defaults = {}
+    vendedoresDefault.forEach(v => { defaults[v.id] = v.comision })
+    return defaults
+  })
   const [filtroVendedor, setFiltroVendedor] = useState('todos')
   const [modalAsignacion, setModalAsignacion] = useState(false)
   const [modalEquipo, setModalEquipo] = useState(false)

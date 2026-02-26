@@ -7,10 +7,12 @@ import {
   FileBarChart,
   Users,
   Shield,
+  Settings,
   LogOut,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
+import DataSourceBadge from './DataSourceBadge'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -85,10 +87,31 @@ export default function Sidebar() {
             Usuarios
           </NavLink>
         )}
+
+        {/* Configuracion — Admin only */}
+        {can('manage_integrations') && (
+          <NavLink
+            to="/configuracion"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
+                isActive
+                  ? 'bg-[#f5f5f7] text-[#1d1d1f] shadow-sm'
+                  : 'text-[#48484a] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]/60'
+              }`
+            }
+          >
+            <Settings className="w-[18px] h-[18px]" strokeWidth={1.8} />
+            Configuracion
+          </NavLink>
+        )}
       </nav>
 
       {/* User Info */}
       <div className="px-4 pb-5 space-y-3">
+        {/* Data Source Badge */}
+        <div className="flex justify-center">
+          <DataSourceBadge />
+        </div>
         {/* User Card */}
         <div className="px-3 py-3 rounded-xl bg-[#f5f5f7]">
           <div className="flex items-center gap-2.5">

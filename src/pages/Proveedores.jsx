@@ -3,9 +3,10 @@ import { Wallet, Users, AlertTriangle, Search } from 'lucide-react'
 import KPICard from '../components/KPICard'
 import MaterialBadge from '../components/MaterialBadge'
 import StatusBadge from '../components/StatusBadge'
-import { proveedoresKPIs, deudaPorMaterial, proveedores } from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 
 export default function Proveedores() {
+  const { proveedoresKPIs, deudaPorMaterial, proveedores } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const maxDeuda = Math.max(...deudaPorMaterial.map((d) => d.deuda))
 

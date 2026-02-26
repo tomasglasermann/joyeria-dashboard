@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, ChevronRight, Download, FileSpreadsheet, FileText, Loader2,
 } from 'lucide-react'
-import { datosMensuales, ventasDiarias, clientesVentas } from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 import {
   loadLogoAsBase64, createPDFDocument, addHeader, addFooter,
   addSectionTitle, addKPIBoxes, addStyledTable, fmtMoney, savePDF,
@@ -10,7 +10,7 @@ import {
 
 const MONTHS = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const MONTHS_FULL = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-const YEARS = [...new Set(datosMensuales.map(d => d.year))].sort()
+// YEARS is now computed inside the component via useMemo
 const MATERIALS = [
   { key: 'oro10k', label: 'Oro 10K', color: '#D4A853' },
   { key: 'oro14k', label: 'Oro 14K', color: '#C9A84C' },
@@ -116,6 +116,8 @@ function groupByVendedor(compras) {
 }
 
 export default function Reportes() {
+  const { datosMensuales, ventasDiarias, clientesVentas } = useData()
+  const YEARS = useMemo(() => [...new Set(datosMensuales.map(d => d.year))].sort(), [datosMensuales])
   const [selectedYear, setSelectedYear] = useState(2026)
   const [selectedMonth, setSelectedMonth] = useState(null)
   const prevYear = selectedYear - 1

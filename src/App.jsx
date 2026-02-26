@@ -11,6 +11,7 @@ import Oro from './pages/Oro'
 import Reportes from './pages/Reportes'
 import Comisiones from './pages/Comisiones'
 import Usuarios from './pages/Usuarios'
+import Configuracion from './pages/Configuracion'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
                   <Route path="/oro" element={<Oro />} />
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/configuracion" element={<Configuracion />} />
                 </Routes>
               </main>
             </div>

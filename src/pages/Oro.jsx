@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
 import ChartContainer from '../components/ChartContainer'
-import { historialOro10Dias } from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 
 // ─── Constants ───
 const PARAMS_KEY = 'vicenza_oro_params'
@@ -73,6 +73,7 @@ function CustomTooltip({ active, payload, label }) {
 
 export default function Oro() {
   const { can } = useRole()
+  const { historialOro10Dias } = useData()
   const [precioOnza, setPrecioOnza] = useState(null)
   const [manualPrice, setManualPrice] = useState('')
   const [useManual, setUseManual] = useState(false)
