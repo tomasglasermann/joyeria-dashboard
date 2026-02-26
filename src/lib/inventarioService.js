@@ -529,6 +529,31 @@ export async function uploadProviderPhotos(items) {
 // ==========================================
 // UPLOAD MANUAL PHOTO (single product)
 // ==========================================
+// ==========================================
+// FIND PRODUCTS BY SKU ARRAY (for screenshot import)
+// ==========================================
+export async function findProductsBySkus(skus) {
+  if (!skus || skus.length === 0) return {}
+
+  const skuMap = {} // sku → { id, sku }
+  const batchSize = 100
+
+  for (let i = 0; i < skus.length; i += batchSize) {
+    const batch = skus.slice(i, i + batchSize)
+    const { data } = await supabase
+      .from('productos')
+      .select('id, sku')
+      .eq('status', 'activo')
+      .in('sku', batch)
+
+    if (data) {
+      for (const p of data) skuMap[p.sku] = p
+    }
+  }
+
+  return skuMap
+}
+
 export async function uploadManualPhoto(productId, sku, file) {
   const filePath = `proveedor/${sku.replace(/\s+/g, '_')}.jpg`
 

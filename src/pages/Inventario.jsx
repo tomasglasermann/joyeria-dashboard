@@ -40,6 +40,7 @@ import {
   uploadProviderPhotos,
   getProviderPhotos,
   uploadManualPhoto,
+  findProductsBySkus,
 } from '../lib/inventarioService'
 import { extractTextFromPdf, extractTextWithPositions, renderAndCropProductPhotos, parsePdfText, detectSupplier } from '../lib/pdfParser'
 import { generateDescriptionsForBatch } from '../lib/descriptionGenerator'
@@ -445,15 +446,16 @@ export default function Inventario() {
       // 4. Crop from FULL resolution image (not the resized one)
       const img = fullImg
 
+      // 5. Find ALL matching products in DB (not just current page)
+      const allSkus = result.products.map(p => p.sku)
+      const dbProductMap = await findProductsBySkus(allSkus)
+
       let uploaded = 0
       let skipped = 0
 
       for (const product of result.products) {
         // Find matching product in DB
-        const dbProduct = productos.find(p =>
-          p.sku === product.sku ||
-          p.sku.replace(/\s/g, '') === product.sku.replace(/\s/g, '')
-        )
+        const dbProduct = dbProductMap[product.sku]
 
         if (!dbProduct) {
           skipped++
