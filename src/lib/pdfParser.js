@@ -205,7 +205,7 @@ export async function extractTextWithPositions(file) {
   const skuPatterns = [
     /\b(BG[\w]+(?:\s+[\w-]+)?)\b/,                // Bright Gems: BGD1428 YG-6
     /\b(S[A-Z]{1,4}-[\w]{3,})\b/,                 // Spectrum: SEBR-45526H (min 3 after dash to skip SW-1, SY-0)
-    /\b(\d[A-Z0-9]{2,5}[A-Z]{1,2}-\d{2,4}N)\b/,  // Lau: 10054EW-385N, 4W66RW-420N, 4X38EY-170N
+    /\b([A-Z0-9]{4,9}-\d{2,4}[NC])\b/,            // Lau: 10054EW-385N, 8G79DA-153C, EAW50-530C, 8H63DR09-180N
     /\b([A-Z]{2,5}\d{3,}[\w-]*)\b/,               // Generic: XX#### (PA10419, PB10590, etc.)
   ]
 
@@ -462,8 +462,8 @@ export function detectSupplier(text) {
   if (t.includes('gogreen')) return 'gogreen'
   if (t.includes('lau international') || t.includes('lau int')) return 'lau'
 
-  // Detect Lau by SKU pattern (digit + alphanum + letters + dash + digits + N)
-  if (/\b\d[A-Z0-9]{2,5}[A-Z]{1,2}-\d{2,4}N\b/.test(text) && /14K[WYR]G/.test(text)) {
+  // Detect Lau by SKU pattern (alphanum prefix + dash + digits + N/C) with 14K gold
+  if (/\b[A-Z0-9]{4,9}-\d{2,4}[NC]\b/.test(text) && /14K[WYR]G/.test(text)) {
     return 'lau'
   }
 
