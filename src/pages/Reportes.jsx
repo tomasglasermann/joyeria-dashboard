@@ -800,78 +800,85 @@ export default function Reportes() {
         </div>
       )}
 
-      {/* YEAR COMPARISON TABLE - Always visible */}
+      {/* YEAR COMPARISON TABLE - Clean table design */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-5">
-          <BarChart3 className="w-5 h-5 text-[#9B7D2E]" />
-          <h3 className="text-[17px] font-semibold text-[#1d1d1f]">Comparacion Anual</h3>
-        </div>
-
-        <div className="space-y-2.5">
-          {monthRows.map((r) => {
-            const isSelected = selectedMonth === r.month
-            if (!r.hasCur && !r.hasPrev) return null
-            return (
-              <button
-                key={r.month}
-                onClick={() => setSelectedMonth(isSelected ? null : r.month)}
-                className={`w-full text-left rounded-xl p-4 transition-all ${
-                  isSelected ? 'bg-[#9B7D2E]/5 ring-1 ring-[#9B7D2E]/20' : 'bg-[#f9f9fb] hover:bg-[#f2f2f7]'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-bold text-[#1d1d1f] w-24">{r.labelFull}</span>
-                    {r.diff !== null && <Change value={r.diff} />}
-                  </div>
-                  <ChevronRight className={`w-4 h-4 text-[#aeaeb2] transition-transform ${isSelected ? 'rotate-90' : ''}`} />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-semibold text-[#aeaeb2] w-8 text-right shrink-0">{prevYear}</span>
-                  <div className="flex-1 h-2.5 bg-[#e8e8ed] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#9B7D2E]/30 transition-all duration-500"
-                      style={{ width: `${(r.prevTotal / maxMonthVal) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-[12px] font-medium text-[#48484a] w-20 text-right shrink-0">
-                    {r.hasPrev ? $$(r.prevTotal) : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-[10px] font-bold text-[#48484a] w-8 text-right shrink-0">{selectedYear}</span>
-                  <div className="flex-1 h-2.5 bg-[#e8e8ed] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#9B7D2E] transition-all duration-500"
-                      style={{ width: `${(r.curTotal / maxMonthVal) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-[12px] font-bold text-[#1d1d1f] w-20 text-right shrink-0">
-                    {r.hasCur ? $$(r.curTotal) : '—'}
-                  </span>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Year totals footer */}
-        <div className="mt-4 pt-4 border-t border-[#f0f0f5]">
-          <div className="flex items-center justify-between">
-            <span className="text-[15px] font-bold text-[#1d1d1f]">Total</span>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <p className="text-[11px] text-[#aeaeb2] font-semibold">{prevYear}</p>
-                <p className="text-[16px] font-bold text-[#48484a]">{$$(prevYearTotal)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[11px] text-[#48484a] font-semibold">{selectedYear}</p>
-                <p className="text-[16px] font-bold text-[#9B7D2E]">{$$(yearTotal)}</p>
-              </div>
-              <div className="w-px h-8 bg-[#e5e5ea]" />
-              <Change value={pct(yearTotal, prevYearTotal)} size="lg" />
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="w-5 h-5 text-[#9B7D2E]" />
+            <h3 className="text-[17px] font-semibold text-[#1d1d1f]">Comparacion Anual</h3>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#9B7D2E]/30" />
+              <span className="text-[11px] font-medium text-[#aeaeb2]">{prevYear}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#9B7D2E]" />
+              <span className="text-[11px] font-semibold text-[#48484a]">{selectedYear}</span>
             </div>
           </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="border-b border-[#f0f0f5]">
+                <th className="text-left py-3 px-3 text-[11px] font-semibold text-[#48484a] uppercase tracking-wider">Mes</th>
+                <th className="text-right py-3 px-3 text-[11px] font-semibold text-[#48484a] uppercase tracking-wider">{prevYear}</th>
+                <th className="text-right py-3 px-3 text-[11px] font-semibold text-[#48484a] uppercase tracking-wider">{selectedYear}</th>
+                <th className="text-right py-3 px-3 text-[11px] font-semibold text-[#48484a] uppercase tracking-wider">Cambio</th>
+                <th className="py-3 px-3 text-[11px] font-semibold text-[#48484a] uppercase tracking-wider w-40"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthRows.map((r) => {
+                if (!r.hasCur && !r.hasPrev) return null
+                const isSelected = selectedMonth === r.month
+                const barPrev = maxMonthVal > 0 ? (r.prevTotal / maxMonthVal) * 100 : 0
+                const barCur = maxMonthVal > 0 ? (r.curTotal / maxMonthVal) * 100 : 0
+                return (
+                  <tr
+                    key={r.month}
+                    onClick={() => setSelectedMonth(isSelected ? null : r.month)}
+                    className={`border-b border-[#f5f5f7] cursor-pointer transition-colors ${
+                      isSelected ? 'bg-[#9B7D2E]/5' : 'hover:bg-[#f9f9fb]'
+                    }`}
+                  >
+                    <td className="py-3.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <ChevronRight className={`w-3.5 h-3.5 text-[#aeaeb2] transition-transform ${isSelected ? 'rotate-90 text-[#9B7D2E]' : ''}`} />
+                        <span className="font-semibold text-[#1d1d1f]">{r.labelFull}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-medium text-[#48484a]">
+                      {r.hasPrev ? $$(r.prevTotal) : '—'}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-semibold text-[#1d1d1f]">
+                      {r.hasCur ? $$(r.curTotal) : '—'}
+                    </td>
+                    <td className="py-3.5 px-3 text-right">
+                      <Change value={r.diff} />
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <div className="relative h-5 w-full">
+                        <div className="absolute top-0 left-0 h-2 bg-[#9B7D2E]/20 rounded-full transition-all duration-500" style={{ width: `${barPrev}%` }} />
+                        <div className="absolute bottom-0 left-0 h-2 bg-[#9B7D2E] rounded-full transition-all duration-500" style={{ width: `${barCur}%` }} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-[#e5e5ea]">
+                <td className="py-4 px-3 text-[14px] font-bold text-[#1d1d1f]">Total</td>
+                <td className="py-4 px-3 text-right text-[14px] font-bold text-[#48484a]">{$$(prevYearTotal)}</td>
+                <td className="py-4 px-3 text-right text-[14px] font-bold text-[#9B7D2E]">{$$(yearTotal)}</td>
+                <td className="py-4 px-3 text-right"><Change value={pct(yearTotal, prevYearTotal)} size="lg" /></td>
+                <td className="py-4 px-3"></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
-import { Wallet, Users, AlertTriangle } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Wallet, Users, AlertTriangle, Search } from 'lucide-react'
 import KPICard from '../components/KPICard'
 import MaterialBadge from '../components/MaterialBadge'
 import StatusBadge from '../components/StatusBadge'
@@ -6,7 +7,18 @@ import { useData } from '../contexts/DataContext'
 
 export default function Proveedores() {
   const { proveedoresKPIs, deudaPorMaterial, proveedores } = useData()
+  const [searchTerm, setSearchTerm] = useState('')
   const maxDeuda = Math.max(...deudaPorMaterial.map((d) => d.deuda))
+
+  const proveedoresFiltrados = useMemo(() => {
+    if (!searchTerm) return proveedores
+    const term = searchTerm.toLowerCase()
+    return proveedores.filter(p =>
+      p.nombre.toLowerCase().includes(term) ||
+      p.contacto.toLowerCase().includes(term) ||
+      p.material.toLowerCase().includes(term)
+    )
+  }, [searchTerm])
 
   return (
     <div className="space-y-8">
@@ -52,7 +64,19 @@ export default function Proveedores() {
 
       {/* Directorio de Proveedores */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="text-[17px] font-semibold text-[#1d1d1f] mb-5">Directorio de Proveedores</h3>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+          <h3 className="text-[17px] font-semibold text-[#1d1d1f]">Directorio de Proveedores</h3>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#aeaeb2]" />
+            <input
+              type="text"
+              placeholder="Buscar proveedor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-[13px] font-medium text-[#1d1d1f] bg-[#f5f5f7] rounded-xl outline-none focus:ring-2 focus:ring-[#9B7D2E]/30 transition-all"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
@@ -68,7 +92,7 @@ export default function Proveedores() {
               </tr>
             </thead>
             <tbody>
-              {proveedores.map((p) => (
+              {proveedoresFiltrados.map((p) => (
                 <tr key={p.nombre} className="border-b border-[#f5f5f7] hover:bg-[#f9f9fb] transition-colors">
                   <td className="py-3.5 px-3 font-semibold text-[#1d1d1f]">{p.nombre}</td>
                   <td className="py-3.5 px-3"><MaterialBadge material={p.material} /></td>
@@ -82,6 +106,14 @@ export default function Proveedores() {
                   <td className="py-3.5 px-3"><StatusBadge status={p.estado} /></td>
                 </tr>
               ))}
+              {proveedoresFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center">
+                    <Users className="w-8 h-8 text-[#d1d1d6] mx-auto mb-2" />
+                    <p className="text-[13px] text-[#aeaeb2]">No se encontraron proveedores</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
