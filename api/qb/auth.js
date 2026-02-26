@@ -1,0 +1,30 @@
+import { setCorsHeaders } from './_lib/qbClient.js'
+import crypto from 'crypto'
+
+export default async function handler(req, res) {
+  setCorsHeaders(res)
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
+  try {
+    // Generate state parameter for CSRF protection
+    const state = crypto.randomBytes(16).toString('hex')
+
+    const params = new URLSearchParams({
+      client_id: process.env.QB_CLIENT_ID,
+      redirect_uri: process.env.QB_REDIRECT_URI || `${req.headers.origin || 'https://vicenza-tan.vercel.app'}/api/qb/callback`,
+      response_type: 'code',
+      scope: 'com.intuit.quickbooks.accounting',
+      state,
+    })
+
+    const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`
+
+    // Set state in cookie for validation on callback
+    res.setHeader('Set-Cookie', `qb_state=${state}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=600`)
+
+    return res.redirect(302, authUrl)
+  } catch (error) {
+    console.error('QB auth error:', error)
+    return res.status(500).json({ error: 'Error iniciando autenticacion con QuickBooks' })
+  }
+}
