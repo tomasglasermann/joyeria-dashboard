@@ -389,37 +389,61 @@ export default function Inventario() {
     if (!file || !file.type.startsWith('image/')) return
 
     setScreenshotProcessing(true)
-    setScreenshotProgress({ step: 'Analizando imagen con IA...', detail: '', done: 0, total: 0 })
+    setScreenshotProgress({ step: 'Preparando imagen...', detail: '', done: 0, total: 0 })
 
     try {
-      // 1. Convert image to base64 data URL
-      const dataUrl = await new Promise((resolve) => {
+      // 1. Load original image (full resolution for cropping later)
+      const originalDataUrl = await new Promise((resolve) => {
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result)
         reader.readAsDataURL(file)
       })
 
-      // 2. Send to Claude Vision to identify products & crop regions
+      const fullImg = await new Promise((resolve) => {
+        const i = new window.Image()
+        i.onload = () => resolve(i)
+        i.src = originalDataUrl
+      })
+
+      // 2. Resize for API call (max 1500px to stay under Vercel 4.5MB body limit)
+      const MAX_DIM = 1500
+      let apiDataUrl = originalDataUrl
+      if (fullImg.width > MAX_DIM || fullImg.height > MAX_DIM) {
+        const scale = Math.min(MAX_DIM / fullImg.width, MAX_DIM / fullImg.height)
+        const resizeCanvas = document.createElement('canvas')
+        resizeCanvas.width = Math.round(fullImg.width * scale)
+        resizeCanvas.height = Math.round(fullImg.height * scale)
+        const rCtx = resizeCanvas.getContext('2d')
+        rCtx.drawImage(fullImg, 0, 0, resizeCanvas.width, resizeCanvas.height)
+        apiDataUrl = resizeCanvas.toDataURL('image/jpeg', 0.85)
+      }
+
+      setScreenshotProgress({ step: 'Analizando imagen con IA...', detail: `${Math.round(apiDataUrl.length / 1024)}KB`, done: 0, total: 0 })
+
+      // 3. Send to Claude Vision to identify products & crop regions
       const resp = await fetch('/api/parse-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'identify-photos', image: dataUrl }),
+        body: JSON.stringify({ mode: 'identify-photos', image: apiDataUrl }),
       })
+
+      if (!resp.ok) {
+        const errText = await resp.text()
+        throw new Error(`API error ${resp.status}: ${errText}`)
+      }
 
       const result = await resp.json()
       if (!result.success || !result.products?.length) {
-        alert('No se identificaron productos en la imagen')
+        alert(`No se identificaron productos. ${result.error || ''}`)
+        setScreenshotProcessing(false)
+        setScreenshotProgress(null)
         return
       }
 
-      setScreenshotProgress({ step: 'Recortando y subiendo fotos...', detail: '', done: 0, total: result.products.length })
+      setScreenshotProgress({ step: 'Recortando y subiendo fotos...', detail: `${result.count} productos`, done: 0, total: result.products.length })
 
-      // 3. Load image into canvas for cropping
-      const img = await new Promise((resolve) => {
-        const i = new window.Image()
-        i.onload = () => resolve(i)
-        i.src = dataUrl
-      })
+      // 4. Crop from FULL resolution image (not the resized one)
+      const img = fullImg
 
       let uploaded = 0
       let skipped = 0
