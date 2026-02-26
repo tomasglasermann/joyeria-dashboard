@@ -7,12 +7,13 @@ import {
   FileBarChart,
   Users,
   Shield,
+  Settings,
   LogOut,
   Gem,
-  Settings,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useRole } from '../hooks/useRole'
+import DataSourceBadge from './DataSourceBadge'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -107,6 +108,10 @@ export default function Sidebar() {
 
       {/* User Info */}
       <div className="px-4 pb-5 space-y-3">
+        {/* Data Source Badge */}
+        <div className="flex justify-center">
+          <DataSourceBadge />
+        </div>
         {/* User Card */}
         <div className="px-3 py-3 rounded-xl bg-[#f5f5f7]">
           <div className="flex items-center gap-2.5">

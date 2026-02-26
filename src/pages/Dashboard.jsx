@@ -11,11 +11,7 @@ import KPICard from '../components/KPICard'
 import SparklineCard from '../components/SparklineCard'
 import MaterialBadge from '../components/MaterialBadge'
 import StatusBadge from '../components/StatusBadge'
-import {
-  kpis,
-  ventasPorMaterial,
-  ultimasOrdenes,
-} from '../data/mockData'
+import { useData } from '../contexts/DataContext'
 
 const DAILY_SALES_KEY = 'vicenza_daily_sales'
 
@@ -34,6 +30,7 @@ function saveDailySales(amount) {
 }
 
 export default function Dashboard() {
+  const { kpis, ventasPorMaterial, ultimasOrdenes } = useData()
   const [ventasDia, setVentasDia] = useState(getDailySales)
   const [goldPrice, setGoldPrice] = useState(null)
   const [goldLoading, setGoldLoading] = useState(true)
@@ -82,7 +79,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-[#1d1d1f]">Dashboard General</h2>
+        <h2 className="text-[28px] font-semibold tracking-tight text-[#1d1d1f]">General Dashboard</h2>
         <p className="text-[15px] text-[#48484a] mt-1">Resumen ejecutivo de tu joyeria</p>
       </div>
 

@@ -1660,6 +1660,21 @@ export const clientesVentas = [
       },
     ],
   },
+  {
+    id: 'CLI-018',
+    nombre: 'Joseito Lopecitos',
+    tipo: 'mayorista',
+    terminos: 30,
+    telefono: '+1 786-555-1818',
+    email: 'joseito@lopecitos.com',
+    compras: [
+      {
+        id: 'CMP-250', fecha: '2026-02-24', canal: 'Al Mayor', monto: 9800, pesoOroGramos: 34.2, vendedor: 'Alejandro Ruiz',
+        desglose: { oro10k: { gramos: 14.5, monto: 3720 }, oro14k: { gramos: 19.7, monto: 5380 }, brillanteria: { piezas: 2, monto: 700 } },
+        factura: { id: 'FAC-250', fechaEmision: '2026-02-24', fechaVencimiento: '2026-03-26', condicion: 30, monto: 9800, montoPagado: 0, fechaPago: null, estado: 'pendiente', diasParaPago: null },
+      },
+    ],
+  },
 ]
 
 // ─── Ventas Diarias (mock) ───
