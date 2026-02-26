@@ -134,37 +134,82 @@ export async function importarExcel(rows) {
     proveedorMap[nombre] = await upsertProveedor(nombre)
   }
 
-  // 2. Prepare products for insert
-  const productos = rows.map(r => ({
-    sku: r.sku,
-    descripcion: r.descripcion || null,
-    tipo: r.tipo || null,
-    quilates: r.quilates || null,
-    costo: r.costo || null,
-    tag_price: r.tag_price || null,
-    wholesale: r.wholesale || null,
-    retail: r.retail || null,
-    proveedor_id: proveedorMap[r.proveedor_nombre] || null,
-    proveedor_nombre: r.proveedor_nombre || null,
-    piezas: r.piezas || 1,
-    status: 'activo',
-  }))
+  // 2. Check which SKUs already exist in the database
+  const allSkus = rows.map(r => r.sku).filter(Boolean)
+  const existingMap = {} // sku → { id }
 
-  // 3. Insert in batches of 500
-  const batchSize = 500
-  let inserted = 0
-
-  for (let i = 0; i < productos.length; i += batchSize) {
-    const batch = productos.slice(i, i + batchSize)
-    const { error } = await supabase
+  for (let i = 0; i < allSkus.length; i += 100) {
+    const batch = allSkus.slice(i, i + 100)
+    const { data } = await supabase
       .from('productos')
-      .insert(batch)
-
-    if (error) throw error
-    inserted += batch.length
+      .select('id, sku')
+      .eq('status', 'activo')
+      .in('sku', batch)
+    if (data) {
+      for (const p of data) {
+        existingMap[p.sku] = p.id
+      }
+    }
   }
 
-  return { inserted, proveedores: proveedoresUnicos.length }
+  // 3. Split into updates (SKU exists) and inserts (new SKU)
+  const toUpdate = []
+  const toInsert = []
+
+  for (const r of rows) {
+    const producto = {
+      sku: r.sku,
+      descripcion: r.descripcion || null,
+      tipo: r.tipo || null,
+      quilates: r.quilates || null,
+      costo: r.costo || null,
+      tag_price: r.tag_price || null,
+      wholesale: r.wholesale || null,
+      retail: r.retail || null,
+      proveedor_id: proveedorMap[r.proveedor_nombre] || null,
+      proveedor_nombre: r.proveedor_nombre || null,
+      piezas: r.piezas || 1,
+      status: 'activo',
+    }
+
+    if (existingMap[r.sku]) {
+      toUpdate.push({ id: existingMap[r.sku], ...producto })
+    } else {
+      toInsert.push(producto)
+    }
+  }
+
+  // 4. Update existing products by ID (batch upsert on primary key)
+  let updated = 0
+  const batchSize = 500
+
+  if (toUpdate.length > 0) {
+    for (let i = 0; i < toUpdate.length; i += batchSize) {
+      const batch = toUpdate.slice(i, i + batchSize)
+      const { error } = await supabase
+        .from('productos')
+        .upsert(batch, { onConflict: 'id' })
+      if (error) throw error
+      updated += batch.length
+    }
+  }
+
+  // 5. Insert new products in batches
+  let inserted = 0
+
+  if (toInsert.length > 0) {
+    for (let i = 0; i < toInsert.length; i += batchSize) {
+      const batch = toInsert.slice(i, i + batchSize)
+      const { error } = await supabase
+        .from('productos')
+        .insert(batch)
+      if (error) throw error
+      inserted += batch.length
+    }
+  }
+
+  console.log(`Import: ${inserted} nuevos, ${updated} actualizados, ${proveedoresUnicos.length} proveedores`)
+  return { inserted, updated, proveedores: proveedoresUnicos.length }
 }
 
 // ==========================================

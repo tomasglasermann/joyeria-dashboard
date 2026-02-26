@@ -636,7 +636,10 @@ export default function Inventario() {
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-green-500" />
             <p className="text-[14px] text-green-700 font-medium">
-              {importResult.inserted.toLocaleString()} productos importados de {importResult.proveedores} proveedores
+              {importResult.inserted > 0 ? `${importResult.inserted.toLocaleString()} nuevos` : ''}
+              {importResult.inserted > 0 && importResult.updated > 0 ? ', ' : ''}
+              {importResult.updated > 0 ? `${importResult.updated.toLocaleString()} actualizados` : ''}
+              {' '}de {importResult.proveedores} proveedores
             </p>
           </div>
           <button onClick={() => setImportResult(null)} className="text-green-400 hover:text-green-600">
