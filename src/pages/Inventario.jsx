@@ -27,6 +27,7 @@ import {
   Eye,
   Save,
   Sparkles,
+  ImagePlus,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import {
@@ -38,6 +39,7 @@ import {
   updateProductDescriptions,
   uploadProviderPhotos,
   getProviderPhotos,
+  uploadManualPhoto,
 } from '../lib/inventarioService'
 import { extractTextFromPdf, extractTextWithPositions, renderAndCropProductPhotos, parsePdfText, detectSupplier } from '../lib/pdfParser'
 import { generateDescriptionsForBatch } from '../lib/descriptionGenerator'
@@ -114,6 +116,7 @@ export default function Inventario() {
   const [aiChunkProgress, setAiChunkProgress] = useState(null) // { done, total }
   const [parsedWithAI, setParsedWithAI] = useState(false)
   const [providerPhotos, setProviderPhotos] = useState({})
+  const [uploadingPhotoId, setUploadingPhotoId] = useState(null)
 
   const getPhotoUrl = useCallback((sku) => {
     const match = lookupPhoto(sku, photoMapState)
@@ -356,6 +359,26 @@ export default function Inventario() {
     setTimeout(() => setCopiedSku(null), 2000)
   }
 
+  // ==========================================
+  // MANUAL PHOTO UPLOAD
+  // ==========================================
+  const handleManualPhotoUpload = async (product, file) => {
+    if (!file || !product?.id) return
+    if (!file.type.startsWith('image/')) return
+
+    setUploadingPhotoId(product.id)
+    try {
+      const result = await uploadManualPhoto(product.id, product.sku, file)
+      // Update providerPhotos state immediately so photo appears without reload
+      setProviderPhotos(prev => ({ ...prev, [product.id]: result.url + '?t=' + Date.now() }))
+    } catch (err) {
+      console.error('Error subiendo foto:', err)
+      alert('Error al subir foto: ' + err.message)
+    } finally {
+      setUploadingPhotoId(null)
+    }
+  }
+
   const handleExportDescriptionsCsv = () => {
     if (pdfProducts.length === 0) return
     const headers = ['SKU', 'Title', 'Description', 'Type', 'Karat', 'Color', 'Stones', 'Design', 'Cost']
@@ -419,6 +442,27 @@ export default function Inventario() {
       if (updated) setSelectedProduct(updated)
     }
   }, [productos])
+
+  // Clipboard paste: Cmd+V to upload screenshot when modal is open
+  useEffect(() => {
+    if (!selectedProduct) return
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            e.preventDefault()
+            handleManualPhotoUpload(selectedProduct, file)
+          }
+          break
+        }
+      }
+    }
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [selectedProduct])
 
   // Sort handler
   const handleSort = (column) => {
@@ -1320,7 +1364,7 @@ export default function Inventario() {
               </thead>
               <tbody>
                 {productos.map((p) => {
-                  const photoUrl = p.foto_url || getPhotoUrl(p.sku)
+                  const photoUrl = p.foto_url || getPhotoUrl(p.sku) || providerPhotos[p.id]
                   return (
                     <tr
                       key={p.id}
@@ -1330,7 +1374,7 @@ export default function Inventario() {
                       <td className="py-2 px-4">
                         {photoUrl ? (
                           <div
-                            className="w-11 h-11 rounded-lg overflow-hidden bg-[#f5f5f7] cursor-zoom-in"
+                            className="w-11 h-11 rounded-lg overflow-hidden bg-[#f5f5f7] cursor-zoom-in relative group"
                             onClick={(e) => { e.stopPropagation(); setLightboxUrl(photoUrl.replace('=s400', '=s1200')) }}
                           >
                             <img
@@ -1340,11 +1384,29 @@ export default function Inventario() {
                               loading="lazy"
                               onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d1d6" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>' }}
                             />
+                            {/* Hover overlay for re-upload */}
+                            <label
+                              className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Upload className="w-3.5 h-3.5 text-white" />
+                              <input type="file" accept="image/*" className="hidden"
+                                onChange={(e) => { const f = e.target.files[0]; if (f) handleManualPhotoUpload(p, f); e.target.value = '' }} />
+                            </label>
                           </div>
                         ) : (
-                          <div className="w-11 h-11 rounded-lg bg-[#f5f5f7] flex items-center justify-center">
-                            <Image className="w-4 h-4 text-[#d1d1d6]" />
-                          </div>
+                          <label
+                            className="w-11 h-11 rounded-lg bg-[#f5f5f7] flex items-center justify-center cursor-pointer hover:bg-[#e8e8ed] transition-colors group"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {uploadingPhotoId === p.id ? (
+                              <Loader2 className="w-4 h-4 text-[#9B7D2E] animate-spin" />
+                            ) : (
+                              <ImagePlus className="w-4 h-4 text-[#d1d1d6] group-hover:text-[#9B7D2E] transition-colors" />
+                            )}
+                            <input type="file" accept="image/*" className="hidden"
+                              onChange={(e) => { const f = e.target.files[0]; if (f) handleManualPhotoUpload(p, f); e.target.value = '' }} />
+                          </label>
                         )}
                       </td>
                       <td className="py-3 px-4">
@@ -1470,50 +1532,92 @@ export default function Inventario() {
 
               <div className="p-6">
                 <div className="flex gap-6">
-                  {/* Photos Column */}
-                  {((selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)) || providerPhotos[selectedProduct.id]) && (
-                    <div className="flex flex-col gap-3 flex-shrink-0">
-                      {/* Professional Photo */}
-                      {(selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)) && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-[#9B7D2E] uppercase mb-1.5 flex items-center gap-1">
-                            <Camera className="w-3 h-3" />
-                            Profesional
-                          </p>
-                          <div
-                            className="w-44 h-44 rounded-2xl overflow-hidden bg-[#f5f5f7] cursor-zoom-in ring-2 ring-[#9B7D2E]/20"
-                            onClick={() => setLightboxUrl((selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)).replace('=s400', '=s1200'))}
-                          >
-                            <img
-                              src={selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)}
-                              alt={selectedProduct.sku}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+                  {/* Photos Column - always visible */}
+                  <div className="flex flex-col gap-3 flex-shrink-0">
+                    {/* Professional Photo */}
+                    {(selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)) && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-[#9B7D2E] uppercase mb-1.5 flex items-center gap-1">
+                          <Camera className="w-3 h-3" />
+                          Profesional
+                        </p>
+                        <div
+                          className="w-44 h-44 rounded-2xl overflow-hidden bg-[#f5f5f7] cursor-zoom-in ring-2 ring-[#9B7D2E]/20"
+                          onClick={() => setLightboxUrl((selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)).replace('=s400', '=s1200'))}
+                        >
+                          <img
+                            src={selectedProduct.foto_url || getPhotoUrl(selectedProduct.sku)}
+                            alt={selectedProduct.sku}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Provider Photo (from PDF) */}
-                      {providerPhotos[selectedProduct.id] && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-[#06B6D4] uppercase mb-1.5 flex items-center gap-1">
-                            <FileText className="w-3 h-3" />
-                            Proveedor
-                          </p>
-                          <div
-                            className="w-44 h-44 rounded-2xl overflow-hidden bg-[#f5f5f7] cursor-zoom-in ring-2 ring-[#06B6D4]/20"
-                            onClick={() => setLightboxUrl(providerPhotos[selectedProduct.id])}
+                    {/* Provider Photo */}
+                    {providerPhotos[selectedProduct.id] && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-[#06B6D4] uppercase mb-1.5 flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          Proveedor
+                        </p>
+                        <div
+                          className="w-44 h-44 rounded-2xl overflow-hidden bg-[#f5f5f7] cursor-zoom-in ring-2 ring-[#06B6D4]/20 relative group"
+                          onClick={() => setLightboxUrl(providerPhotos[selectedProduct.id])}
+                        >
+                          <img
+                            src={providerPhotos[selectedProduct.id]}
+                            alt={`${selectedProduct.sku} proveedor`}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Re-upload overlay */}
+                          <label
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <img
-                              src={providerPhotos[selectedProduct.id]}
-                              alt={`${selectedProduct.sku} proveedor`}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+                            <Upload className="w-5 h-5 text-white" />
+                            <input type="file" accept="image/*" className="hidden"
+                              onChange={(e) => { const f = e.target.files[0]; if (f) handleManualPhotoUpload(selectedProduct, f); e.target.value = '' }} />
+                          </label>
                         </div>
-                      )}
+                      </div>
+                    )}
+
+                    {/* Upload Zone */}
+                    <div>
+                      <p className="text-[10px] font-semibold text-[#34A853] uppercase mb-1.5 flex items-center gap-1">
+                        <ImagePlus className="w-3 h-3" />
+                        Subir Foto
+                      </p>
+                      <label
+                        className={`w-44 h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${
+                          uploadingPhotoId === selectedProduct.id
+                            ? 'border-[#9B7D2E] bg-[#FFF8E7]'
+                            : 'border-[#d1d1d6] hover:border-[#9B7D2E] hover:bg-[#FFF8E7]/50'
+                        }`}
+                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-[#9B7D2E]', 'bg-[#FFF8E7]') }}
+                        onDragLeave={(e) => { e.currentTarget.classList.remove('border-[#9B7D2E]', 'bg-[#FFF8E7]') }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.classList.remove('border-[#9B7D2E]', 'bg-[#FFF8E7]')
+                          const file = e.dataTransfer.files[0]
+                          if (file) handleManualPhotoUpload(selectedProduct, file)
+                        }}
+                      >
+                        {uploadingPhotoId === selectedProduct.id ? (
+                          <Loader2 className="w-6 h-6 text-[#9B7D2E] animate-spin" />
+                        ) : (
+                          <>
+                            <ImagePlus className="w-6 h-6 text-[#aeaeb2] mb-1.5" />
+                            <span className="text-[11px] text-[#aeaeb2] font-medium">Click o arrastra</span>
+                            <span className="text-[10px] text-[#d1d1d6]">JPG, PNG o Cmd+V</span>
+                          </>
+                        )}
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files[0]; if (f) handleManualPhotoUpload(selectedProduct, f); e.target.value = '' }} />
+                      </label>
                     </div>
-                  )}
+                  </div>
 
                   {/* Details */}
                   <div className="flex-1">

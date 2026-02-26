@@ -527,6 +527,56 @@ export async function uploadProviderPhotos(items) {
 }
 
 // ==========================================
+// UPLOAD MANUAL PHOTO (single product)
+// ==========================================
+export async function uploadManualPhoto(productId, sku, file) {
+  const filePath = `proveedor/${sku.replace(/\s+/g, '_')}.jpg`
+
+  // 1. Upload to storage
+  const { error: uploadError } = await supabase
+    .storage
+    .from('producto-fotos')
+    .upload(filePath, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: true,
+    })
+  if (uploadError) throw uploadError
+
+  // 2. Get public URL
+  const { data: urlData } = supabase
+    .storage
+    .from('producto-fotos')
+    .getPublicUrl(filePath)
+  const publicUrl = urlData?.publicUrl
+  if (!publicUrl) throw new Error('No se pudo obtener la URL publica')
+
+  // 3. Upsert in producto_fotos table
+  const { data: existing } = await supabase
+    .from('producto_fotos')
+    .select('id')
+    .eq('producto_id', productId)
+    .eq('tipo', 'proveedor')
+
+  if (existing && existing.length > 0) {
+    await supabase
+      .from('producto_fotos')
+      .update({ url: publicUrl, nombre_archivo: filePath })
+      .eq('id', existing[0].id)
+  } else {
+    await supabase
+      .from('producto_fotos')
+      .insert({
+        producto_id: productId,
+        url: publicUrl,
+        tipo: 'proveedor',
+        nombre_archivo: filePath,
+      })
+  }
+
+  return { success: true, url: publicUrl }
+}
+
+// ==========================================
 // GET PROVIDER PHOTOS FOR PRODUCTS
 // ==========================================
 export async function getProviderPhotos(productIds) {
