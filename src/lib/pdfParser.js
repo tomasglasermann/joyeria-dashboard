@@ -203,10 +203,10 @@ export async function extractTextWithPositions(file) {
 
   // Common SKU patterns across suppliers
   const skuPatterns = [
-    /\b(BG[\w]+(?:\s+[\w-]+)?)\b/,       // Bright Gems: BGD1428 YG-6
-    /\b(S[A-Z]{1,4}-[\w]+)\b/,            // Spectrum: SEBR-45526H
-    /\b(\d{4,5}[A-Z]{1,4}-\d{2,4}N)\b/,  // Lau: 10054EW-385N, 21658DY-230N
-    /\b([A-Z]{2,5}\d{3,}[\w-]*)\b/,       // Generic: XX#### (PA10419, PB10590, etc.)
+    /\b(BG[\w]+(?:\s+[\w-]+)?)\b/,                // Bright Gems: BGD1428 YG-6
+    /\b(S[A-Z]{1,4}-[\w]{3,})\b/,                 // Spectrum: SEBR-45526H (min 3 after dash to skip SW-1, SY-0)
+    /\b(\d[A-Z0-9]{2,5}[A-Z]{1,2}-\d{2,4}N)\b/,  // Lau: 10054EW-385N, 4W66RW-420N, 4X38EY-170N
+    /\b([A-Z]{2,5}\d{3,}[\w-]*)\b/,               // Generic: XX#### (PA10419, PB10590, etc.)
   ]
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -462,8 +462,8 @@ export function detectSupplier(text) {
   if (t.includes('gogreen')) return 'gogreen'
   if (t.includes('lau international') || t.includes('lau int')) return 'lau'
 
-  // Detect Lau by SKU pattern (digits + letters + dash + digits + N)
-  if (/\b\d{4,5}[A-Z]{1,4}-\d{2,4}N\b/.test(text) && /14K[WYR]G/.test(text)) {
+  // Detect Lau by SKU pattern (digit + alphanum + letters + dash + digits + N)
+  if (/\b\d[A-Z0-9]{2,5}[A-Z]{1,2}-\d{2,4}N\b/.test(text) && /14K[WYR]G/.test(text)) {
     return 'lau'
   }
 
