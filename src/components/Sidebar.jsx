@@ -88,22 +88,20 @@ export default function Sidebar() {
           </NavLink>
         )}
 
-        {/* Configuracion — Admin only */}
-        {can('manage_users') && (
-          <NavLink
-            to="/configuracion"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-[#f5f5f7] text-[#1d1d1f] shadow-sm'
-                  : 'text-[#48484a] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]/60'
-              }`
-            }
-          >
-            <Settings className="w-[18px] h-[18px]" strokeWidth={1.8} />
-            Configuracion
-          </NavLink>
-        )}
+        {/* Configuracion */}
+        <NavLink
+          to="/configuracion"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
+              isActive
+                ? 'bg-[#f5f5f7] text-[#1d1d1f] shadow-sm'
+                : 'text-[#48484a] hover:text-[#1d1d1f] hover:bg-[#f5f5f7]/60'
+            }`
+          }
+        >
+          <Settings className="w-[18px] h-[18px]" strokeWidth={1.8} />
+          Configuracion
+        </NavLink>
       </nav>
 
       {/* User Info */}
