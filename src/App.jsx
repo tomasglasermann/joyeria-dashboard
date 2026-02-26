@@ -11,6 +11,8 @@ import Oro from './pages/Oro'
 import Reportes from './pages/Reportes'
 import Comisiones from './pages/Comisiones'
 import Usuarios from './pages/Usuarios'
+import Inventario from './pages/Inventario'
+import Configuracion from './pages/Configuracion'
 
 export default function App() {
   return (
@@ -30,12 +32,14 @@ export default function App() {
               <main className="ml-[240px] flex-1 px-10 py-8 max-w-[1400px]">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/inventario" element={<Inventario />} />
                   <Route path="/ventas" element={<Ventas />} />
                   <Route path="/comisiones" element={<Comisiones />} />
                   <Route path="/proveedores" element={<Proveedores />} />
                   <Route path="/oro" element={<Oro />} />
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/configuracion" element={<Configuracion />} />
                 </Routes>
               </main>
             </div>
