@@ -379,6 +379,112 @@ export default function Inventario() {
     }
   }
 
+  // ==========================================
+  // BULK SCREENSHOT IMPORT - AI identifies & crops photos
+  // ==========================================
+  const [screenshotProcessing, setScreenshotProcessing] = useState(false)
+  const [screenshotProgress, setScreenshotProgress] = useState(null) // { step, detail, done, total }
+
+  const handleScreenshotImport = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return
+
+    setScreenshotProcessing(true)
+    setScreenshotProgress({ step: 'Analizando imagen con IA...', detail: '', done: 0, total: 0 })
+
+    try {
+      // 1. Convert image to base64 data URL
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.readAsDataURL(file)
+      })
+
+      // 2. Send to Claude Vision to identify products & crop regions
+      const resp = await fetch('/api/parse-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'identify-photos', image: dataUrl }),
+      })
+
+      const result = await resp.json()
+      if (!result.success || !result.products?.length) {
+        alert('No se identificaron productos en la imagen')
+        return
+      }
+
+      setScreenshotProgress({ step: 'Recortando y subiendo fotos...', detail: '', done: 0, total: result.products.length })
+
+      // 3. Load image into canvas for cropping
+      const img = await new Promise((resolve) => {
+        const i = new window.Image()
+        i.onload = () => resolve(i)
+        i.src = dataUrl
+      })
+
+      let uploaded = 0
+      let skipped = 0
+
+      for (const product of result.products) {
+        // Find matching product in DB
+        const dbProduct = productos.find(p =>
+          p.sku === product.sku ||
+          p.sku.replace(/\s/g, '') === product.sku.replace(/\s/g, '')
+        )
+
+        if (!dbProduct) {
+          skipped++
+          setScreenshotProgress(prev => ({ ...prev, done: uploaded + skipped, detail: `${product.sku} no encontrado` }))
+          continue
+        }
+
+        // 4. Crop the photo region using canvas
+        const crop = product.crop
+        const sx = Math.round(img.width * crop.x_pct / 100)
+        const sy = Math.round(img.height * crop.y_pct / 100)
+        const sw = Math.round(img.width * crop.w_pct / 100)
+        const sh = Math.round(img.height * crop.h_pct / 100)
+
+        const canvas = document.createElement('canvas')
+        const maxDim = 500
+        const scale = Math.min(maxDim / sw, maxDim / sh, 1)
+        canvas.width = Math.round(sw * scale)
+        canvas.height = Math.round(sh * scale)
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+
+        // Convert canvas to blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+        const cropFile = new File([blob], `${product.sku}.jpg`, { type: 'image/jpeg' })
+
+        // 5. Upload using existing function
+        try {
+          const uploadResult = await uploadManualPhoto(dbProduct.id, dbProduct.sku, cropFile)
+          setProviderPhotos(prev => ({ ...prev, [dbProduct.id]: uploadResult.url + '?t=' + Date.now() }))
+          uploaded++
+        } catch (err) {
+          console.error(`Error uploading ${product.sku}:`, err)
+          skipped++
+        }
+
+        setScreenshotProgress(prev => ({ ...prev, done: uploaded + skipped, detail: `${product.sku} ✓` }))
+      }
+
+      setScreenshotProgress({ step: 'Completado', detail: `${uploaded} fotos subidas${skipped > 0 ? `, ${skipped} omitidas` : ''}`, done: uploaded + skipped, total: result.products.length })
+
+      // Auto-clear after 4 seconds
+      setTimeout(() => {
+        setScreenshotProcessing(false)
+        setScreenshotProgress(null)
+      }, 4000)
+
+    } catch (err) {
+      console.error('Screenshot import error:', err)
+      alert('Error procesando captura: ' + err.message)
+      setScreenshotProcessing(false)
+      setScreenshotProgress(null)
+    }
+  }
+
   const handleExportDescriptionsCsv = () => {
     if (pdfProducts.length === 0) return
     const headers = ['SKU', 'Title', 'Description', 'Type', 'Karat', 'Color', 'Stones', 'Design', 'Cost']
@@ -646,6 +752,19 @@ export default function Inventario() {
               disabled={pdfParsing}
             />
           </label>
+          <label className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-xl cursor-pointer transition-colors ${
+            screenshotProcessing ? 'text-[#9B7D2E] bg-amber-100' : 'text-[#34A853] bg-green-50 hover:bg-green-100'
+          }`}>
+            <ImagePlus className={`w-4 h-4 ${screenshotProcessing ? 'animate-pulse' : ''}`} />
+            {screenshotProcessing ? (screenshotProgress?.step || 'Procesando...') : 'Importar Fotos'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => { const f = e.target.files[0]; if (f) handleScreenshotImport(f); e.target.value = '' }}
+              className="hidden"
+              disabled={screenshotProcessing}
+            />
+          </label>
           <button
             onClick={handleSyncPhotos}
             disabled={syncing}
@@ -689,6 +808,31 @@ export default function Inventario() {
           <button onClick={() => setImportResult(null)} className="text-green-400 hover:text-green-600">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Screenshot Import Progress */}
+      {screenshotProcessing && screenshotProgress && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-2">
+            {screenshotProgress.step === 'Completado' ? (
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+            ) : (
+              <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+            )}
+            <p className="text-[14px] text-green-700 font-medium">{screenshotProgress.step}</p>
+            {screenshotProgress.detail && (
+              <span className="text-[12px] text-green-500">{screenshotProgress.detail}</span>
+            )}
+          </div>
+          {screenshotProgress.total > 0 && (
+            <div className="w-full bg-green-200 rounded-full h-1.5">
+              <div
+                className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${(screenshotProgress.done / screenshotProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
