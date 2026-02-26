@@ -89,7 +89,7 @@ export default function Sidebar() {
         )}
 
         {/* Configuracion — Admin only */}
-        {can('manage_integrations') && (
+        {can('manage_users') && (
           <NavLink
             to="/configuracion"
             className={({ isActive }) =>
