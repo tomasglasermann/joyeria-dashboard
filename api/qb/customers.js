@@ -1,4 +1,4 @@
-import { verifyUser, qbQuery, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
+import { verifyUser, qbQuery, qbQueryAll, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
 import { transformCustomers } from './_lib/transformers.js'
 
 export default async function handler(req, res) {
@@ -26,16 +26,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ clientesVentas: cached.data, fromCache: true })
     }
 
-    // Fetch from QuickBooks
-    const [customersRes, invoicesRes, receiptsRes] = await Promise.all([
-      qbQuery("SELECT * FROM Customer WHERE Active = true MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM Invoice MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM SalesReceipt MAXRESULTS 1000"),
+    // Fetch from QuickBooks (paginated - no 1000 limit)
+    const [customers, invoices, receipts] = await Promise.all([
+      qbQueryAll("SELECT * FROM Customer WHERE Active = true", "Customer"),
+      qbQueryAll("SELECT * FROM Invoice", "Invoice"),
+      qbQueryAll("SELECT * FROM SalesReceipt", "SalesReceipt"),
     ])
-
-    const customers = customersRes?.QueryResponse?.Customer || []
-    const invoices = invoicesRes?.QueryResponse?.Invoice || []
-    const receipts = receiptsRes?.QueryResponse?.SalesReceipt || []
 
     // Get item mappings
     const { data: mappingsData } = await supabase

@@ -1,4 +1,4 @@
-import { verifyUser, qbQuery, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
+import { verifyUser, qbQuery, qbQueryAll, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
 import { transformVendors, computeProveedoresKPIs } from './_lib/transformers.js'
 
 export default async function handler(req, res) {
@@ -26,16 +26,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...cached.data, fromCache: true })
     }
 
-    // Fetch from QuickBooks
-    const [vendorsRes, billsRes, paymentsRes] = await Promise.all([
-      qbQuery("SELECT * FROM Vendor WHERE Active = true MAXRESULTS 500"),
-      qbQuery("SELECT * FROM Bill MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM BillPayment MAXRESULTS 1000"),
+    // Fetch from QuickBooks (paginated - no 1000 limit)
+    const [vendors, bills, payments] = await Promise.all([
+      qbQueryAll("SELECT * FROM Vendor WHERE Active = true", "Vendor"),
+      qbQueryAll("SELECT * FROM Bill", "Bill"),
+      qbQueryAll("SELECT * FROM BillPayment", "BillPayment"),
     ])
-
-    const vendors = vendorsRes?.QueryResponse?.Vendor || []
-    const bills = billsRes?.QueryResponse?.Bill || []
-    const payments = paymentsRes?.QueryResponse?.BillPayment || []
 
     const proveedores = transformVendors(vendors, bills, payments)
     const { proveedoresKPIs, deudaPorMaterial } = computeProveedoresKPIs(proveedores)

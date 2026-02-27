@@ -1,4 +1,4 @@
-import { verifyAdmin, qbQuery, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
+import { verifyAdmin, qbQuery, qbQueryAll, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
 import { transformCustomers, transformVendors, computeProveedoresKPIs, computeAggregates } from './_lib/transformers.js'
 
 export default async function handler(req, res) {
@@ -22,22 +22,15 @@ export default async function handler(req, res) {
       .delete()
       .eq('realm_id', connection.realm_id)
 
-    // Fetch all data from QB in parallel
-    const [customersRes, invoicesRes, receiptsRes, vendorsRes, billsRes, paymentsRes] = await Promise.all([
-      qbQuery("SELECT * FROM Customer WHERE Active = true MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM Invoice MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM SalesReceipt MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM Vendor WHERE Active = true MAXRESULTS 500"),
-      qbQuery("SELECT * FROM Bill MAXRESULTS 1000"),
-      qbQuery("SELECT * FROM BillPayment MAXRESULTS 1000"),
+    // Fetch all data from QB with pagination (no 1000 limit)
+    const [customers, invoices, receipts, vendors, bills, billPayments] = await Promise.all([
+      qbQueryAll("SELECT * FROM Customer WHERE Active = true", "Customer"),
+      qbQueryAll("SELECT * FROM Invoice", "Invoice"),
+      qbQueryAll("SELECT * FROM SalesReceipt", "SalesReceipt"),
+      qbQueryAll("SELECT * FROM Vendor WHERE Active = true", "Vendor"),
+      qbQueryAll("SELECT * FROM Bill", "Bill"),
+      qbQueryAll("SELECT * FROM BillPayment", "BillPayment"),
     ])
-
-    const customers = customersRes?.QueryResponse?.Customer || []
-    const invoices = invoicesRes?.QueryResponse?.Invoice || []
-    const receipts = receiptsRes?.QueryResponse?.SalesReceipt || []
-    const vendors = vendorsRes?.QueryResponse?.Vendor || []
-    const bills = billsRes?.QueryResponse?.Bill || []
-    const billPayments = paymentsRes?.QueryResponse?.BillPayment || []
 
     // Get item mappings
     const { data: mappingsData } = await supabase

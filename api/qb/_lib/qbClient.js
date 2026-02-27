@@ -177,6 +177,26 @@ export async function qbQuery(query) {
   return qbFetch(`query?query=${encodedQuery}`)
 }
 
+// ─── QB Paginated Query (fetches ALL records beyond 1000 limit) ───
+export async function qbQueryAll(baseQuery, entityName) {
+  const PAGE_SIZE = 1000
+  let startPosition = 1
+  let allResults = []
+
+  while (true) {
+    const paginatedQuery = `${baseQuery} STARTPOSITION ${startPosition} MAXRESULTS ${PAGE_SIZE}`
+    const res = await qbQuery(paginatedQuery)
+    const items = res?.QueryResponse?.[entityName] || []
+    allResults = allResults.concat(items)
+
+    // If we got fewer than PAGE_SIZE, we've reached the end
+    if (items.length < PAGE_SIZE) break
+    startPosition += PAGE_SIZE
+  }
+
+  return allResults
+}
+
 // ─── CORS headers helper ───
 export function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
