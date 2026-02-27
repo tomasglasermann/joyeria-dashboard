@@ -39,6 +39,9 @@ export function DataProvider({ children }) {
     vendedoresEquipo: mockData.vendedoresEquipo,
     ventasComisiones: mockData.ventasComisiones,
     clienteVendedorDefault: mockData.clienteVendedorDefault,
+    proveedoresGastos: mockData.proveedoresGastos,
+    gastosKPIs: mockData.gastosKPIs,
+    categoriasGastos: mockData.categoriasGastos,
   })
 
   // Check QB connection on mount
@@ -132,6 +135,9 @@ export function DataProvider({ children }) {
       vendedoresEquipo: mockData.vendedoresEquipo,
       ventasComisiones: mockData.ventasComisiones,
       clienteVendedorDefault: mockData.clienteVendedorDefault,
+      proveedoresGastos: mockData.proveedoresGastos,
+      gastosKPIs: mockData.gastosKPIs,
+      categoriasGastos: mockData.categoriasGastos,
     })
     setQbConnected(false)
     setCompanyName(null)

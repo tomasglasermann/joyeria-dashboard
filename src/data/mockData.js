@@ -159,6 +159,39 @@ export const proveedores = [
   { nombre: 'GemWorld Trading', material: 'Brillantería', contacto: 'Diego Mora', telefono: '+58 424-555-0808', deuda: 0, vencimiento: '-', ultimoPago: '2026-02-12', estado: 'al_dia' },
 ]
 
+// ─── Gastos Operativos ───
+export const categoriasGastos = [
+  'Alquiler',
+  'Internet / Telecomunicaciones',
+  'Marketing / Publicidad',
+  'Seguros',
+  'Servicios Profesionales',
+  'Software / Tecnologia',
+  'Envio / Logistica',
+  'Mantenimiento',
+  'Suministros de Oficina',
+  'Servicios Publicos',
+  'Limpieza',
+  'Otros',
+]
+
+export const proveedoresGastos = [
+  { id: 'G1', nombre: 'Comcast Business', categoria: 'Internet / Telecomunicaciones', monto: 450, frecuencia: 'mensual' },
+  { id: 'G2', nombre: 'Brilliance Marketing Group', categoria: 'Marketing / Publicidad', monto: 2500, frecuencia: 'mensual' },
+  { id: 'G3', nombre: 'State Farm Insurance', categoria: 'Seguros', monto: 18000, frecuencia: 'anual' },
+  { id: 'G4', nombre: 'Brickell Office Leasing', categoria: 'Alquiler', monto: 6800, frecuencia: 'mensual' },
+  { id: 'G5', nombre: 'Garcia & Asociados CPA', categoria: 'Servicios Profesionales', monto: 1200, frecuencia: 'mensual' },
+  { id: 'G6', nombre: 'FedEx Shipping', categoria: 'Envio / Logistica', monto: 800, frecuencia: 'mensual' },
+  { id: 'G7', nombre: 'QuickBooks Online', categoria: 'Software / Tecnologia', monto: 85, frecuencia: 'mensual' },
+  { id: 'G8', nombre: 'Office Depot', categoria: 'Suministros de Oficina', monto: 350, frecuencia: 'mensual' },
+]
+
+export const gastosKPIs = {
+  gastoTotalMensual: 13685,
+  cantidadGastos: 8,
+  categoriaMayorGasto: 'Alquiler',
+}
+
 // ─── Oro: Historial 10 días ───
 export const historialOro10Dias = [
   { fecha: '14 Feb', xauUsd: 2310.20, gramo10k: 30.90, gramo14k: 43.45 },
