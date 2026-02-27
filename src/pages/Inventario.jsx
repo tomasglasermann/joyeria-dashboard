@@ -186,25 +186,50 @@ export default function Inventario() {
     }
   }
 
-  // Approve a partial match
+  // Approve a single partial match
   const handleApproveMatch = async (match) => {
     setApprovingMatchId(match.driveSku)
     try {
       await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
-      // Remove from partial matches list
+      // Remove from list immediately
       setPartialMatches(prev => prev.filter(m => m.driveSku !== match.driveSku))
-      // Update local photo state so totalPhotosMatched increases
+      // Update photo state and counter
       setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
-      // Update sync result counter
       setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + 1 } : prev)
-      // Reload table data so foto_url shows in the table
-      loadData()
+      // Also update the product in local state so table shows photo instantly
+      setProductos(prev => prev.map(p =>
+        p.id === match.suggestedProduct.id ? { ...p, foto_url: match.drivePhotoUrl } : p
+      ))
     } catch (err) {
       console.error('Error approving match:', err)
       alert('Error al aprobar: ' + err.message)
     } finally {
       setApprovingMatchId(null)
     }
+  }
+
+  // Approve ALL partial matches at once (batch)
+  const handleApproveAll = async () => {
+    const toApprove = [...partialMatches]
+    setApprovingMatchId('__all__')
+    let approved = 0
+    for (const match of toApprove) {
+      try {
+        await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+        approved++
+        // Update photo state per item
+        setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
+        setProductos(prev => prev.map(p =>
+          p.id === match.suggestedProduct.id ? { ...p, foto_url: match.drivePhotoUrl } : p
+        ))
+      } catch (err) {
+        console.error(`Error approving ${match.driveSku}:`, err)
+      }
+    }
+    // Clear all and update counter in one go
+    setPartialMatches([])
+    setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + approved } : prev)
+    setApprovingMatchId(null)
   }
 
   // Dismiss a partial match
@@ -1072,20 +1097,22 @@ export default function Inventario() {
               <div className="mt-4 pt-4 border-t border-[#e8e8ed] flex items-center justify-end gap-3">
                 <button
                   onClick={() => setPartialMatches([])}
-                  className="text-[12px] font-medium text-[#48484a] hover:text-[#1d1d1f] transition-colors"
+                  disabled={approvingMatchId === '__all__'}
+                  className="text-[12px] font-medium text-[#48484a] hover:text-[#1d1d1f] transition-colors disabled:opacity-50"
                 >
                   Omitir todas
                 </button>
                 <button
-                  onClick={async () => {
-                    for (const match of [...partialMatches]) {
-                      await handleApproveMatch(match)
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-white bg-[#34A853] hover:bg-[#2d9249] rounded-lg transition-colors"
+                  onClick={handleApproveAll}
+                  disabled={approvingMatchId === '__all__'}
+                  className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-white bg-[#34A853] hover:bg-[#2d9249] rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Aprobar todas ({partialMatches.length})
+                  {approvingMatchId === '__all__' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  {approvingMatchId === '__all__' ? 'Aprobando...' : `Aprobar todas (${partialMatches.length})`}
                 </button>
               </div>
             )}
