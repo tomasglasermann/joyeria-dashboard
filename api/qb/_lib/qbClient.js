@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getTokenEndpoint } from './discovery.js'
 
 // ─── Supabase Admin Client (service role for serverless functions) ───
 export function getSupabaseAdmin() {
@@ -73,7 +74,9 @@ export async function refreshQBTokens(connection) {
     `${process.env.QB_CLIENT_ID}:${process.env.QB_CLIENT_SECRET}`
   ).toString('base64')
 
-  const response = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+  const tokenEndpoint = await getTokenEndpoint()
+
+  const response = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${credentials}`,

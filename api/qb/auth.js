@@ -1,4 +1,5 @@
 import { setCorsHeaders } from './_lib/qbClient.js'
+import { getAuthorizationEndpoint } from './_lib/discovery.js'
 import crypto from 'crypto'
 
 export default async function handler(req, res) {
@@ -17,7 +18,8 @@ export default async function handler(req, res) {
       state,
     })
 
-    const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`
+    const authorizationEndpoint = await getAuthorizationEndpoint()
+    const authUrl = `${authorizationEndpoint}?${params.toString()}`
 
     // Set state in cookie for validation on callback
     res.setHeader('Set-Cookie', `qb_state=${state}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=600`)
