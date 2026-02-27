@@ -1,4 +1,5 @@
 import { verifyAdmin, getActiveConnection, getSupabaseAdmin, setCorsHeaders } from './_lib/qbClient.js'
+import { getRevocationEndpoint } from './_lib/discovery.js'
 
 export default async function handler(req, res) {
   setCorsHeaders(res)
@@ -19,7 +20,9 @@ export default async function handler(req, res) {
         `${process.env.QB_CLIENT_ID}:${process.env.QB_CLIENT_SECRET}`
       ).toString('base64')
 
-      await fetch('https://developer.api.intuit.com/v2/oauth2/tokens/revoke', {
+      const revocationEndpoint = await getRevocationEndpoint()
+
+      await fetch(revocationEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${credentials}`,

@@ -1,4 +1,5 @@
 import { setCorsHeaders } from './_lib/qbClient.js'
+import { getAuthorizationEndpoint } from './_lib/discovery.js'
 import crypto from 'crypto'
 
 export default async function handler(req, res) {
@@ -35,7 +36,8 @@ export default async function handler(req, res) {
       state,
     })
 
-    const authUrl = `https://appcenter.intuit.com/connect/oauth2?${params.toString()}`
+    const authorizationEndpoint = await getAuthorizationEndpoint()
+    const authUrl = `${authorizationEndpoint}?${params.toString()}`
 
     console.log('QB Auth redirect:', { clientIdPrefix: clientId.substring(0, 6), redirectUri })
 

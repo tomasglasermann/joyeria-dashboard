@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from './_lib/qbClient.js'
+import { getTokenEndpoint } from './_lib/discovery.js'
 
 export default async function handler(req, res) {
   try {
@@ -21,7 +22,9 @@ export default async function handler(req, res) {
 
     const redirectUri = process.env.QB_REDIRECT_URI || 'https://vicenza-tan.vercel.app/api/qb/callback'
 
-    const tokenResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+    const tokenEndpoint = await getTokenEndpoint()
+
+    const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
