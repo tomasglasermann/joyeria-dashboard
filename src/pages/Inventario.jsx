@@ -155,7 +155,7 @@ export default function Inventario() {
       setPhotoMapState(data.photoMap)
 
       // Update Supabase with foto_url for matched products
-      const { updated, matchedPhotoSkus, partialMatches: fuzzyMatches } = await syncPhotosToDb(data.photoMap)
+      const { updated, matchedPhotoSkus, partialMatches: fuzzyMatches, autoApproved } = await syncPhotosToDb(data.photoMap)
 
       // Compute unmatched photos (in Drive but no product SKU in DB, excluding partial matches)
       const matchedSet = new Set(matchedPhotoSkus)
@@ -176,6 +176,7 @@ export default function Inventario() {
         dbUpdated: updated,
         unmatched,
         partialCount: fuzzyMatches?.length || 0,
+        autoApproved: autoApproved || 0,
       })
     } catch (err) {
       console.error('Sync error:', err)
@@ -917,7 +918,7 @@ export default function Inventario() {
             <div className="flex items-center gap-3">
               <Camera className="w-5 h-5 text-cyan-500" />
               <p className="text-[14px] text-cyan-700 font-medium">
-                {syncResult.totalPhotos} fotos encontradas · {syncResult.uniqueSkus} SKUs · {syncResult.dbUpdated} productos actualizados en la base de datos
+                {syncResult.totalPhotos} fotos · {syncResult.uniqueSkus} SKUs · {syncResult.dbUpdated} actualizados{syncResult.autoApproved > 0 ? ` (${syncResult.autoApproved} auto-asignadas por similitud)` : ''}
               </p>
             </div>
             <button onClick={() => { setSyncResult(null); setShowUnmatched(false) }} className="text-cyan-400 hover:text-cyan-600">

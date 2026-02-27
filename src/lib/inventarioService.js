@@ -330,6 +330,12 @@ export async function syncPhotosToDb(photoMap) {
     from += pageSize
   }
 
+  // Build a normalized lookup map for Drive photos: normalizedKey → original key
+  const normalizedDriveMap = {}
+  for (const key of Object.keys(photoMap)) {
+    normalizedDriveMap[normalizeSku(key)] = key
+  }
+
   let updated = 0
   const updates = []
   const matchedPhotoSkus = new Set()
@@ -337,15 +343,39 @@ export async function syncPhotosToDb(photoMap) {
 
   for (const product of productos) {
     const sku = product.sku
-    // Direct match
+    // 1. Direct exact match
     let photo = photoMap[sku]
     let matchedKey = photo ? sku : null
-    // Try removing color suffix
+
+    // 2. Try removing color suffix
     if (!photo) {
       const base = sku.replace(/\s*(WG|YG|W|Y|RG)$/i, '')
       if (base !== sku) {
         photo = photoMap[base]
         matchedKey = photo ? base : null
+      }
+    }
+
+    // 3. Try normalized match (strips spaces, uppercase)
+    if (!photo) {
+      const normalizedSku = normalizeSku(sku)
+      const driveKey = normalizedDriveMap[normalizedSku]
+      if (driveKey) {
+        photo = photoMap[driveKey]
+        matchedKey = driveKey
+      }
+    }
+
+    // 4. Try normalized match without color suffix
+    if (!photo) {
+      const base = sku.replace(/\s*(WG|YG|W|Y|RG|DYG|TRI|YRB|YEM|WRB|WEM|WSP|YDRB|YDBSP|YBSP|YDEM|YDSQ|RB|SP)$/i, '')
+      if (base !== sku) {
+        const normalizedBase = normalizeSku(base)
+        const driveKey = normalizedDriveMap[normalizedBase]
+        if (driveKey) {
+          photo = photoMap[driveKey]
+          matchedKey = driveKey
+        }
       }
     }
 
@@ -376,8 +406,10 @@ export async function syncPhotosToDb(photoMap) {
   const unmatchedDriveSkus = Object.keys(photoMap).filter(k => !matchedPhotoSkus.has(k))
   const unmatchedProducts = productos.filter(p => !matchedProductIds.has(p.id))
   const partialMatches = []
+  const autoApproved = []
 
   const SIMILARITY_THRESHOLD = 0.6
+  const AUTO_APPROVE_THRESHOLD = 0.9
 
   for (const driveSku of unmatchedDriveSkus) {
     let bestMatch = null
@@ -397,20 +429,36 @@ export async function syncPhotosToDb(photoMap) {
     }
 
     if (bestMatch) {
-      partialMatches.push({
-        driveSku,
-        drivePhotoUrl: photoMap[driveSku].u,
-        drivePath: photoMap[driveSku].p,
-        suggestedProduct: { id: bestMatch.id, sku: bestMatch.sku },
-        similarity: Math.round(bestScore * 100),
-      })
+      if (bestScore >= AUTO_APPROVE_THRESHOLD) {
+        // Auto-approve high-confidence matches
+        autoApproved.push({ id: bestMatch.id, foto_url: photoMap[driveSku].u })
+        matchedPhotoSkus.add(driveSku)
+        matchedProductIds.add(bestMatch.id)
+      } else {
+        partialMatches.push({
+          driveSku,
+          drivePhotoUrl: photoMap[driveSku].u,
+          drivePath: photoMap[driveSku].p,
+          suggestedProduct: { id: bestMatch.id, sku: bestMatch.sku },
+          similarity: Math.round(bestScore * 100),
+        })
+      }
     }
+  }
+
+  // Auto-approve batch update
+  for (const item of autoApproved) {
+    await supabase
+      .from('productos')
+      .update({ foto_url: item.foto_url })
+      .eq('id', item.id)
+    updated++
   }
 
   // Sort by similarity descending
   partialMatches.sort((a, b) => b.similarity - a.similarity)
 
-  return { updated, matchedPhotoSkus: [...matchedPhotoSkus], partialMatches }
+  return { updated, matchedPhotoSkus: [...matchedPhotoSkus], partialMatches, autoApproved: autoApproved.length }
 }
 
 // ==========================================
