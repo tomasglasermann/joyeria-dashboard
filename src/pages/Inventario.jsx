@@ -190,15 +190,16 @@ export default function Inventario() {
   const handleApproveMatch = async (match) => {
     setApprovingMatchId(match.driveSku)
     try {
-      await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+      const result = await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+      const savedUrl = result.product.foto_url
       // Remove from list immediately
       setPartialMatches(prev => prev.filter(m => m.driveSku !== match.driveSku))
       // Update photo state and counter
-      setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
+      setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: savedUrl, p: match.drivePath } }))
       setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + 1 } : prev)
       // Also update the product in local state so table shows photo instantly
       setProductos(prev => prev.map(p =>
-        p.id === match.suggestedProduct.id ? { ...p, foto_url: match.drivePhotoUrl } : p
+        p.id === match.suggestedProduct.id ? { ...p, foto_url: savedUrl } : p
       ))
     } catch (err) {
       console.error('Error approving match:', err)
@@ -215,12 +216,12 @@ export default function Inventario() {
     let approved = 0
     for (const match of toApprove) {
       try {
-        await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+        const result = await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+        const savedUrl = result.product.foto_url
         approved++
-        // Update photo state per item
-        setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
+        setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: savedUrl, p: match.drivePath } }))
         setProductos(prev => prev.map(p =>
-          p.id === match.suggestedProduct.id ? { ...p, foto_url: match.drivePhotoUrl } : p
+          p.id === match.suggestedProduct.id ? { ...p, foto_url: savedUrl } : p
         ))
       } catch (err) {
         console.error(`Error approving ${match.driveSku}:`, err)
@@ -230,6 +231,8 @@ export default function Inventario() {
     setPartialMatches([])
     setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + approved } : prev)
     setApprovingMatchId(null)
+    // Reload table to reflect all changes
+    loadData()
   }
 
   // Dismiss a partial match

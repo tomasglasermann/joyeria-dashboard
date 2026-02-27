@@ -465,12 +465,20 @@ export async function syncPhotosToDb(photoMap) {
 // APPROVE PARTIAL PHOTO MATCH
 // ==========================================
 export async function approvePhotoMatch(productId, photoUrl) {
-  const { error } = await supabase
+  // Use high-res URL (remove =s400 thumbnail suffix)
+  const fullUrl = photoUrl.replace('=s400', '=s1200')
+
+  const { data, error, count } = await supabase
     .from('productos')
-    .update({ foto_url: photoUrl })
+    .update({ foto_url: fullUrl })
     .eq('id', productId)
+    .select('id, sku, foto_url')
+
   if (error) throw error
-  return { success: true }
+  if (!data || data.length === 0) {
+    throw new Error(`No se encontró producto con id ${productId}`)
+  }
+  return { success: true, product: data[0] }
 }
 
 // ==========================================
