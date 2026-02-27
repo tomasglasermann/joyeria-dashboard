@@ -41,6 +41,7 @@ import {
   getProviderPhotos,
   uploadManualPhoto,
   findProductsBySkus,
+  approvePhotoMatch,
 } from '../lib/inventarioService'
 import { extractTextFromPdf, extractTextWithPositions, renderAndCropProductPhotos, parsePdfText, detectSupplier } from '../lib/pdfParser'
 import { generateDescriptionsForBatch } from '../lib/descriptionGenerator'
@@ -118,6 +119,9 @@ export default function Inventario() {
   const [parsedWithAI, setParsedWithAI] = useState(false)
   const [providerPhotos, setProviderPhotos] = useState({})
   const [uploadingPhotoId, setUploadingPhotoId] = useState(null)
+  const [partialMatches, setPartialMatches] = useState([])
+  const [showPartialReview, setShowPartialReview] = useState(false)
+  const [approvingMatchId, setApprovingMatchId] = useState(null)
 
   const getPhotoUrl = useCallback((sku) => {
     const match = lookupPhoto(sku, photoMapState)
@@ -138,6 +142,8 @@ export default function Inventario() {
     setSyncing(true)
     setSyncResult(null)
     setShowUnmatched(false)
+    setPartialMatches([])
+    setShowPartialReview(false)
 
     try {
       const resp = await fetch('/api/sync-photos')
@@ -149,19 +155,27 @@ export default function Inventario() {
       setPhotoMapState(data.photoMap)
 
       // Update Supabase with foto_url for matched products
-      const { updated, matchedPhotoSkus } = await syncPhotosToDb(data.photoMap)
+      const { updated, matchedPhotoSkus, partialMatches: fuzzyMatches } = await syncPhotosToDb(data.photoMap)
 
-      // Compute unmatched photos (in Drive but no product SKU in DB)
+      // Compute unmatched photos (in Drive but no product SKU in DB, excluding partial matches)
       const matchedSet = new Set(matchedPhotoSkus)
+      const partialSet = new Set((fuzzyMatches || []).map(m => m.driveSku))
       const unmatched = Object.entries(data.photoMap)
-        .filter(([sku]) => !matchedSet.has(sku))
+        .filter(([sku]) => !matchedSet.has(sku) && !partialSet.has(sku))
         .map(([sku, info]) => ({ sku, url: info.u, path: info.p }))
+
+      // Set partial matches for review
+      if (fuzzyMatches && fuzzyMatches.length > 0) {
+        setPartialMatches(fuzzyMatches)
+        setShowPartialReview(true)
+      }
 
       setSyncResult({
         totalPhotos: data.totalPhotos,
         uniqueSkus: data.uniqueSkus,
         dbUpdated: updated,
         unmatched,
+        partialCount: fuzzyMatches?.length || 0,
       })
     } catch (err) {
       console.error('Sync error:', err)
@@ -169,6 +183,28 @@ export default function Inventario() {
     } finally {
       setSyncing(false)
     }
+  }
+
+  // Approve a partial match
+  const handleApproveMatch = async (match) => {
+    setApprovingMatchId(match.driveSku)
+    try {
+      await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
+      // Remove from partial matches list
+      setPartialMatches(prev => prev.filter(m => m.driveSku !== match.driveSku))
+      // Update local photo state
+      setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
+    } catch (err) {
+      console.error('Error approving match:', err)
+      alert('Error al aprobar: ' + err.message)
+    } finally {
+      setApprovingMatchId(null)
+    }
+  }
+
+  // Dismiss a partial match
+  const handleDismissMatch = (driveSku) => {
+    setPartialMatches(prev => prev.filter(m => m.driveSku !== driveSku))
   }
 
   // ==========================================
@@ -889,21 +925,34 @@ export default function Inventario() {
             </button>
           </div>
 
-          {syncResult.unmatched?.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-cyan-200">
+          <div className="mt-3 pt-3 border-t border-cyan-200 flex flex-wrap gap-3">
+            {partialMatches.length > 0 && (
               <button
-                onClick={() => setShowUnmatched(!showUnmatched)}
+                onClick={() => setShowPartialReview(!showPartialReview)}
                 className="flex items-center gap-2 text-[13px] font-medium text-amber-600 hover:text-amber-700 transition-colors"
               >
+                <Eye className="w-4 h-4" />
+                {partialMatches.length} fotos con coincidencia parcial — revisar
+                {showPartialReview
+                  ? <ChevronUp className="w-4 h-4" />
+                  : <ChevronDown className="w-4 h-4" />
+                }
+              </button>
+            )}
+            {syncResult.unmatched?.length > 0 && (
+              <button
+                onClick={() => setShowUnmatched(!showUnmatched)}
+                className="flex items-center gap-2 text-[13px] font-medium text-[#aeaeb2] hover:text-[#48484a] transition-colors"
+              >
                 <AlertCircle className="w-4 h-4" />
-                {syncResult.unmatched.length} fotos sin coincidencia en inventario
+                {syncResult.unmatched.length} sin coincidencia
                 {showUnmatched
                   ? <ChevronUp className="w-4 h-4" />
                   : <ChevronDown className="w-4 h-4" />
                 }
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -916,6 +965,126 @@ export default function Inventario() {
           <button onClick={() => setSyncResult(null)} className="text-red-400 hover:text-red-600">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Partial Match Review Panel */}
+      {showPartialReview && partialMatches.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-amber-200">
+          <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between">
+            <div>
+              <h3 className="text-[17px] font-semibold text-[#1d1d1f] flex items-center gap-2">
+                <Eye className="w-5 h-5 text-amber-500" />
+                Coincidencias Parciales
+              </h3>
+              <p className="text-[13px] text-[#48484a] mt-0.5">
+                {partialMatches.length} fotos del Drive con SKU similar — aprueba para asignar la foto
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPartialReview(false)}
+              className="p-1.5 rounded-lg hover:bg-amber-100"
+            >
+              <X className="w-4 h-4 text-[#48484a]" />
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {partialMatches.map((match) => (
+                <div
+                  key={match.driveSku}
+                  className="bg-[#f5f5f7] rounded-2xl p-4 flex gap-4 items-start transition-all hover:shadow-md"
+                >
+                  {/* Photo Thumbnail */}
+                  <div
+                    className="w-24 h-24 rounded-xl overflow-hidden bg-white flex-shrink-0 cursor-zoom-in ring-2 ring-amber-200"
+                    onClick={() => setLightboxUrl(match.drivePhotoUrl.replace('=s400', '=s1200'))}
+                  >
+                    <img
+                      src={match.drivePhotoUrl}
+                      alt={match.driveSku}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => { e.target.style.display = 'none' }}
+                    />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Drive</span>
+                      <span className="text-[13px] font-semibold text-[#1d1d1f] truncate">{match.driveSku}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-[#34A853] uppercase tracking-wider">Match</span>
+                      <span className="text-[13px] font-medium text-[#1d1d1f] truncate">{match.suggestedProduct.sku}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                        match.similarity >= 80
+                          ? 'bg-green-100 text-green-700'
+                          : match.similarity >= 70
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {match.similarity}% similar
+                      </span>
+                      {match.drivePath && (
+                        <span className="text-[10px] text-[#aeaeb2] truncate">{match.drivePath}</span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApproveMatch(match)}
+                        disabled={approvingMatchId === match.driveSku}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-white bg-[#34A853] hover:bg-[#2d9249] rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {approvingMatchId === match.driveSku ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => handleDismissMatch(match.driveSku)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#48484a] bg-white hover:bg-[#e8e8ed] rounded-lg transition-colors border border-[#d1d1d6]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Omitir
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Approve All / Dismiss All */}
+            {partialMatches.length > 1 && (
+              <div className="mt-4 pt-4 border-t border-[#e8e8ed] flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setPartialMatches([])}
+                  className="text-[12px] font-medium text-[#48484a] hover:text-[#1d1d1f] transition-colors"
+                >
+                  Omitir todas
+                </button>
+                <button
+                  onClick={async () => {
+                    for (const match of [...partialMatches]) {
+                      await handleApproveMatch(match)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 text-[12px] font-semibold text-white bg-[#34A853] hover:bg-[#2d9249] rounded-lg transition-colors"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Aprobar todas ({partialMatches.length})
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

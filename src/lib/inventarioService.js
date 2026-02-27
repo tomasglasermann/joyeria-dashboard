@@ -264,6 +264,49 @@ export function parseSpectrumText(text) {
 }
 
 // ==========================================
+// SKU SIMILARITY (Levenshtein + substring)
+// ==========================================
+function levenshtein(a, b) {
+  const m = a.length, n = b.length
+  if (m === 0) return n
+  if (n === 0) return m
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[m][n]
+}
+
+function normalizeSku(sku) {
+  return (sku || '').toUpperCase().replace(/\s+/g, '').trim()
+}
+
+export function skuSimilarity(a, b) {
+  const na = normalizeSku(a)
+  const nb = normalizeSku(b)
+  if (!na || !nb) return 0
+  if (na === nb) return 1
+
+  // Substring containment bonus
+  if (na.includes(nb) || nb.includes(na)) {
+    const shorter = Math.min(na.length, nb.length)
+    const longer = Math.max(na.length, nb.length)
+    return 0.7 + (0.3 * shorter / longer)
+  }
+
+  // Levenshtein-based similarity
+  const maxLen = Math.max(na.length, nb.length)
+  const dist = levenshtein(na, nb)
+  return 1 - dist / maxLen
+}
+
+// ==========================================
 // SYNC PHOTOS TO DB
 // ==========================================
 export async function syncPhotosToDb(photoMap) {
@@ -290,6 +333,7 @@ export async function syncPhotosToDb(photoMap) {
   let updated = 0
   const updates = []
   const matchedPhotoSkus = new Set()
+  const matchedProductIds = new Set()
 
   for (const product of productos) {
     const sku = product.sku
@@ -307,6 +351,7 @@ export async function syncPhotosToDb(photoMap) {
 
     if (photo) {
       matchedPhotoSkus.add(matchedKey)
+      matchedProductIds.add(product.id)
       if (photo.u !== product.foto_url) {
         updates.push({ id: product.id, foto_url: photo.u })
       }
@@ -325,7 +370,59 @@ export async function syncPhotosToDb(photoMap) {
     updated += batch.length
   }
 
-  return { updated, matchedPhotoSkus: [...matchedPhotoSkus] }
+  // ==========================================
+  // FUZZY MATCHING for unmatched Drive photos
+  // ==========================================
+  const unmatchedDriveSkus = Object.keys(photoMap).filter(k => !matchedPhotoSkus.has(k))
+  const unmatchedProducts = productos.filter(p => !matchedProductIds.has(p.id))
+  const partialMatches = []
+
+  const SIMILARITY_THRESHOLD = 0.6
+
+  for (const driveSku of unmatchedDriveSkus) {
+    let bestMatch = null
+    let bestScore = 0
+
+    for (const product of unmatchedProducts) {
+      const score = skuSimilarity(driveSku, product.sku)
+      // Also try without color suffix
+      const base = product.sku.replace(/\s*(WG|YG|W|Y|RG|DYG|TRI|YRB|YEM|WRB|WEM|WSP|YDRB|YDBSP|YBSP|YDEM|YDSQ|RB|SP)$/i, '')
+      const scoreBase = base !== product.sku ? skuSimilarity(driveSku, base) : 0
+      const finalScore = Math.max(score, scoreBase)
+
+      if (finalScore > bestScore && finalScore >= SIMILARITY_THRESHOLD) {
+        bestScore = finalScore
+        bestMatch = product
+      }
+    }
+
+    if (bestMatch) {
+      partialMatches.push({
+        driveSku,
+        drivePhotoUrl: photoMap[driveSku].u,
+        drivePath: photoMap[driveSku].p,
+        suggestedProduct: { id: bestMatch.id, sku: bestMatch.sku },
+        similarity: Math.round(bestScore * 100),
+      })
+    }
+  }
+
+  // Sort by similarity descending
+  partialMatches.sort((a, b) => b.similarity - a.similarity)
+
+  return { updated, matchedPhotoSkus: [...matchedPhotoSkus], partialMatches }
+}
+
+// ==========================================
+// APPROVE PARTIAL PHOTO MATCH
+// ==========================================
+export async function approvePhotoMatch(productId, photoUrl) {
+  const { error } = await supabase
+    .from('productos')
+    .update({ foto_url: photoUrl })
+    .eq('id', productId)
+  if (error) throw error
+  return { success: true }
 }
 
 // ==========================================
