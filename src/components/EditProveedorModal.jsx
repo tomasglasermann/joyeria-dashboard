@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
-const materialesOptions = ['Oro 10K', 'Oro 14K', 'Brillantería']
 const frecuenciaOptions = [
   { value: 'mensual', label: 'Mensual' },
   { value: 'anual', label: 'Anual' },
@@ -17,20 +16,64 @@ const selectClass = 'w-full text-[13px] font-medium text-[#424245] bg-[#f5f5f7] 
 const inputClass = 'w-full text-[13px] font-medium text-[#1d1d1f] bg-[#f5f5f7] border-0 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#9B7D2E]/30'
 const labelClass = 'text-[12px] font-semibold text-[#48484a] uppercase tracking-wider mb-1.5 block'
 
-export default function EditProveedorModal({ open, onClose, proveedor, tipo, categoriasGastos, onSave }) {
+const ADD_NEW = '__ADD_NEW__'
+
+export default function EditProveedorModal({ open, onClose, proveedor, tipo, materialesOptions, categoriasGastos, onSave, onAddMaterial, onAddCategoria }) {
   const [form, setForm] = useState({})
   const [currentTipo, setCurrentTipo] = useState(tipo)
+  const [addingMaterial, setAddingMaterial] = useState(false)
+  const [newMaterial, setNewMaterial] = useState('')
+  const [addingCategoria, setAddingCategoria] = useState(false)
+  const [newCategoria, setNewCategoria] = useState('')
 
   useEffect(() => {
     if (proveedor) {
       setForm({ ...proveedor })
       setCurrentTipo(tipo)
+      setAddingMaterial(false)
+      setNewMaterial('')
+      setAddingCategoria(false)
+      setNewCategoria('')
     }
   }, [proveedor, tipo])
 
   if (!open || !proveedor) return null
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handleMaterialChange = (e) => {
+    if (e.target.value === ADD_NEW) {
+      setAddingMaterial(true)
+    } else {
+      set('material', e.target.value)
+    }
+  }
+
+  const handleAddMaterial = () => {
+    const trimmed = newMaterial.trim()
+    if (!trimmed) return
+    onAddMaterial(trimmed)
+    set('material', trimmed)
+    setAddingMaterial(false)
+    setNewMaterial('')
+  }
+
+  const handleCategoriaChange = (e) => {
+    if (e.target.value === ADD_NEW) {
+      setAddingCategoria(true)
+    } else {
+      set('categoria', e.target.value)
+    }
+  }
+
+  const handleAddCategoria = () => {
+    const trimmed = newCategoria.trim()
+    if (!trimmed) return
+    onAddCategoria(trimmed)
+    set('categoria', trimmed)
+    setAddingCategoria(false)
+    setNewCategoria('')
+  }
 
   const handleSave = () => {
     onSave(form, currentTipo, tipo)
@@ -86,15 +129,43 @@ export default function EditProveedorModal({ open, onClose, proveedor, tipo, cat
             <>
               <div>
                 <label className={labelClass}>Material</label>
-                <select
-                  value={form.material || 'Oro 10K'}
-                  onChange={(e) => set('material', e.target.value)}
-                  className={selectClass}
-                >
-                  {materialesOptions.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+                {addingMaterial ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMaterial}
+                      onChange={(e) => setNewMaterial(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddMaterial()}
+                      placeholder="Nombre del material..."
+                      autoFocus
+                      className={inputClass}
+                    />
+                    <button
+                      onClick={handleAddMaterial}
+                      disabled={!newMaterial.trim()}
+                      className="px-3 py-2.5 bg-[#9B7D2E] text-white text-[13px] font-semibold rounded-xl hover:bg-[#866B27] transition-colors disabled:opacity-40 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setAddingMaterial(false); setNewMaterial('') }}
+                      className="px-3 py-2.5 bg-[#f5f5f7] text-[#48484a] text-[13px] font-semibold rounded-xl hover:bg-[#e8e8ed] transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.material || materialesOptions[0]}
+                    onChange={handleMaterialChange}
+                    className={selectClass}
+                  >
+                    {materialesOptions.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                    <option value={ADD_NEW}>+ Agregar nuevo material...</option>
+                  </select>
+                )}
               </div>
               <div>
                 <label className={labelClass}>Contacto</label>
@@ -143,15 +214,43 @@ export default function EditProveedorModal({ open, onClose, proveedor, tipo, cat
             <>
               <div>
                 <label className={labelClass}>Categoria</label>
-                <select
-                  value={form.categoria || categoriasGastos[0]}
-                  onChange={(e) => set('categoria', e.target.value)}
-                  className={selectClass}
-                >
-                  {categoriasGastos.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {addingCategoria ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoria}
+                      onChange={(e) => setNewCategoria(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddCategoria()}
+                      placeholder="Nombre de la categoria..."
+                      autoFocus
+                      className={inputClass}
+                    />
+                    <button
+                      onClick={handleAddCategoria}
+                      disabled={!newCategoria.trim()}
+                      className="px-3 py-2.5 bg-[#9B7D2E] text-white text-[13px] font-semibold rounded-xl hover:bg-[#866B27] transition-colors disabled:opacity-40 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setAddingCategoria(false); setNewCategoria('') }}
+                      className="px-3 py-2.5 bg-[#f5f5f7] text-[#48484a] text-[13px] font-semibold rounded-xl hover:bg-[#e8e8ed] transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={form.categoria || categoriasGastos[0]}
+                    onChange={handleCategoriaChange}
+                    className={selectClass}
+                  >
+                    {categoriasGastos.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value={ADD_NEW}>+ Agregar nueva categoria...</option>
+                  </select>
+                )}
               </div>
               <div>
                 <label className={labelClass}>Monto ($)</label>

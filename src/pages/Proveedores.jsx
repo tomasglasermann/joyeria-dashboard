@@ -34,6 +34,10 @@ const LS_MERC = 'proveedores_mercancia'
 const LS_GAST = 'proveedores_gastos'
 const LS_COLS_MERC = 'proveedores_cols_mercancia'
 const LS_COLS_GAST = 'proveedores_cols_gastos'
+const LS_MATERIALES = 'proveedores_materiales'
+const LS_CATEGORIAS = 'proveedores_categorias'
+
+const defaultMateriales = ['Oro 10K', 'Oro 14K', 'Brillantería']
 
 function loadLS(key) {
   try { return JSON.parse(localStorage.getItem(key)) } catch { return null }
@@ -50,6 +54,10 @@ export default function Proveedores() {
   const [localMerc, setLocalMerc] = useState(() => loadLS(LS_MERC) || ctxProveedores)
   const [localGast, setLocalGast] = useState(() => loadLS(LS_GAST) || ctxGastos)
 
+  // Dynamic categories/materials lists
+  const [materiales, setMateriales] = useState(() => loadLS(LS_MATERIALES) || defaultMateriales)
+  const [categorias, setCategorias] = useState(() => loadLS(LS_CATEGORIAS) || categoriasGastos)
+
   // Column visibility
   const [colsMerc, setColsMerc] = useState(() => loadLS(LS_COLS_MERC) || mercanciaColumns.map(c => c.key))
   const [colsGast, setColsGast] = useState(() => loadLS(LS_COLS_GAST) || gastosColumns.map(c => c.key))
@@ -57,6 +65,8 @@ export default function Proveedores() {
   // Persist to localStorage
   useEffect(() => { localStorage.setItem(LS_MERC, JSON.stringify(localMerc)) }, [localMerc])
   useEffect(() => { localStorage.setItem(LS_GAST, JSON.stringify(localGast)) }, [localGast])
+  useEffect(() => { localStorage.setItem(LS_MATERIALES, JSON.stringify(materiales)) }, [materiales])
+  useEffect(() => { localStorage.setItem(LS_CATEGORIAS, JSON.stringify(categorias)) }, [categorias])
   useEffect(() => { localStorage.setItem(LS_COLS_MERC, JSON.stringify(colsMerc)) }, [colsMerc])
   useEffect(() => { localStorage.setItem(LS_COLS_GAST, JSON.stringify(colsGast)) }, [colsGast])
 
@@ -135,6 +145,15 @@ export default function Proveedores() {
     setEditOpen(true)
   }, [])
 
+  // Add new material/category
+  const handleAddMaterial = useCallback((name) => {
+    setMateriales(prev => prev.includes(name) ? prev : [...prev, name])
+  }, [])
+
+  const handleAddCategoria = useCallback((name) => {
+    setCategorias(prev => prev.includes(name) ? prev : [...prev, name])
+  }, [])
+
   // Save handler — handles edits AND type changes (mercancia↔gastos)
   const handleSave = useCallback((updatedItem, newTipo, originalTipo) => {
     if (newTipo === originalTipo) {
@@ -152,7 +171,7 @@ export default function Proveedores() {
         setLocalGast(prev => [...prev, {
           id: 'G' + Date.now(),
           nombre: updatedItem.nombre,
-          categoria: updatedItem.categoria || categoriasGastos[0],
+          categoria: updatedItem.categoria || categorias[0],
           monto: updatedItem.monto || 0,
           frecuencia: updatedItem.frecuencia || 'mensual',
         }])
@@ -414,8 +433,11 @@ export default function Proveedores() {
         onClose={() => setEditOpen(false)}
         proveedor={editItem}
         tipo={editTipo}
-        categoriasGastos={categoriasGastos}
+        materialesOptions={materiales}
+        categoriasGastos={categorias}
         onSave={handleSave}
+        onAddMaterial={handleAddMaterial}
+        onAddCategoria={handleAddCategoria}
       />
     </div>
   )
