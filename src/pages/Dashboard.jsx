@@ -13,37 +13,18 @@ import MaterialBadge from '../components/MaterialBadge'
 import StatusBadge from '../components/StatusBadge'
 import { useData } from '../contexts/DataContext'
 
-const DAILY_SALES_KEY = 'vicenza_daily_sales'
-
-function getDailySales() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(DAILY_SALES_KEY))
-    const today = new Date().toISOString().split('T')[0]
-    if (saved && saved.date === today) return saved.amount
-  } catch {}
-  return 0
-}
-
-function saveDailySales(amount) {
-  const today = new Date().toISOString().split('T')[0]
-  localStorage.setItem(DAILY_SALES_KEY, JSON.stringify({ date: today, amount }))
-}
-
 export default function Dashboard() {
-  const { kpis, ventasPorMaterial, ultimasOrdenes } = useData()
-  const [ventasDia, setVentasDia] = useState(getDailySales)
+  const { kpis, ventasPorMaterial, ultimasOrdenes, ventasDiarias, qbConnected } = useData()
   const [goldPrice, setGoldPrice] = useState(null)
   const [goldLoading, setGoldLoading] = useState(true)
 
-  // Check for date change every minute (auto-reset at midnight)
-  useEffect(() => {
-    const checkDate = () => {
-      const current = getDailySales()
-      if (current === 0 && ventasDia !== 0) setVentasDia(0)
-    }
-    const interval = setInterval(checkDate, 60 * 1000)
-    return () => clearInterval(interval)
-  }, [ventasDia])
+  // Calculate today's sales from QB data (ventasDiarias)
+  const ventasDia = useMemo(() => {
+    if (!ventasDiarias || ventasDiarias.length === 0) return 0
+    const today = new Date().toISOString().split('T')[0]
+    const todayData = ventasDiarias.find(d => d.fecha === today)
+    return todayData?.total || 0
+  }, [ventasDiarias])
 
   useEffect(() => {
     const fetchGold = async () => {
