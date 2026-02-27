@@ -193,8 +193,12 @@ export default function Inventario() {
       await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
       // Remove from partial matches list
       setPartialMatches(prev => prev.filter(m => m.driveSku !== match.driveSku))
-      // Update local photo state
+      // Update local photo state so totalPhotosMatched increases
       setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: match.drivePhotoUrl, p: match.drivePath } }))
+      // Update sync result counter
+      setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + 1 } : prev)
+      // Reload table data so foto_url shows in the table
+      loadData()
     } catch (err) {
       console.error('Error approving match:', err)
       alert('Error al aprobar: ' + err.message)
