@@ -85,7 +85,7 @@ export async function getInventarioStats() {
   while (true) {
     const { data, error } = await supabase
       .from('productos')
-      .select('proveedor_nombre, costo, tipo, status')
+      .select('proveedor_nombre, costo, tipo, status, foto_url')
       .eq('status', 'activo')
       .range(from, from + pageSize - 1)
 
@@ -117,7 +117,10 @@ export async function getInventarioStats() {
     porTipo[tipo]++
   })
 
-  return { total, valorTotal, porProveedor, porTipo }
+  // Con foto
+  const conFoto = allData.filter(p => p.foto_url).length
+
+  return { total, valorTotal, porProveedor, porTipo, conFoto }
 }
 
 // ==========================================

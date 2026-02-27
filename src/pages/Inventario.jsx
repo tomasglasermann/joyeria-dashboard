@@ -133,7 +133,7 @@ export default function Inventario() {
     return match ? match.p : null
   }, [photoMapState])
 
-  const totalPhotosMatched = Object.keys(photoMapState).length
+  const totalPhotosMatched = stats?.conFoto ?? Object.keys(photoMapState).length
 
   // ==========================================
   // SYNC PHOTOS HANDLER
@@ -178,12 +178,23 @@ export default function Inventario() {
         partialCount: fuzzyMatches?.length || 0,
         autoApproved: autoApproved || 0,
       })
+
+      // Refresh photo count from DB
+      refreshPhotoCount()
     } catch (err) {
       console.error('Sync error:', err)
       setSyncResult({ error: err.message })
     } finally {
       setSyncing(false)
     }
+  }
+
+  // Refresh just the photo count from DB (lightweight)
+  const refreshPhotoCount = async () => {
+    try {
+      const freshStats = await getInventarioStats()
+      if (freshStats) setStats(freshStats)
+    } catch (e) { /* ignore */ }
   }
 
   // Approve a single partial match
@@ -194,13 +205,14 @@ export default function Inventario() {
       const savedUrl = result.product.foto_url
       // Remove from list immediately
       setPartialMatches(prev => prev.filter(m => m.driveSku !== match.driveSku))
-      // Update photo state and counter
-      setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: savedUrl, p: match.drivePath } }))
+      // Update sync result counter
       setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + 1 } : prev)
-      // Also update the product in local state so table shows photo instantly
+      // Update local product state so table shows photo instantly
       setProductos(prev => prev.map(p =>
         p.id === match.suggestedProduct.id ? { ...p, foto_url: savedUrl } : p
       ))
+      // Refresh the "con foto" counter from DB
+      setStats(prev => prev ? { ...prev, conFoto: (prev.conFoto || 0) + 1 } : prev)
     } catch (err) {
       console.error('Error approving match:', err)
       alert('Error al aprobar: ' + err.message)
@@ -219,7 +231,6 @@ export default function Inventario() {
         const result = await approvePhotoMatch(match.suggestedProduct.id, match.drivePhotoUrl)
         const savedUrl = result.product.foto_url
         approved++
-        setPhotoMapState(prev => ({ ...prev, [match.suggestedProduct.sku]: { u: savedUrl, p: match.drivePath } }))
         setProductos(prev => prev.map(p =>
           p.id === match.suggestedProduct.id ? { ...p, foto_url: savedUrl } : p
         ))
@@ -227,12 +238,12 @@ export default function Inventario() {
         console.error(`Error approving ${match.driveSku}:`, err)
       }
     }
-    // Clear all and update counter in one go
+    // Clear all and update counters
     setPartialMatches([])
     setSyncResult(prev => prev ? { ...prev, dbUpdated: (prev.dbUpdated || 0) + approved } : prev)
     setApprovingMatchId(null)
-    // Reload table to reflect all changes
-    loadData()
+    // Refresh real photo count from DB
+    refreshPhotoCount()
   }
 
   // Dismiss a partial match
